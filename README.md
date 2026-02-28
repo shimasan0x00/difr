@@ -1,0 +1,86 @@
+# diffff
+
+プラットフォームに依存しない、ローカルで動作するコードレビュー支援ツール。
+Git の差分をブラウザ上で GitHub 風に可視化し、コメント機能と Claude Code 連携（Chat + 自動レビュー）を提供します。
+
+## 特徴
+
+- **GitHub 風 Diff ビューア** — Split / Unified 表示切替、Shiki による構文ハイライト
+- **インラインコメント** — 行単位でコメントを追加・編集・削除、Markdown / JSON エクスポート
+- **Claude Code 連携** — WebSocket 経由のリアルタイムチャット＆自動コードレビュー
+- **単一バイナリ配布** — Go embed でフロントエンドを内蔵、インストール不要
+- **パイプ入力対応** — `git diff | diffff` で任意の diff を表示可能
+
+## インストール
+
+```bash
+go install github.com/shimasan0x00/diffff/cmd/diffff@latest
+```
+
+### ソースからビルド
+
+前提: Go 1.25+, Node.js 20+, [Task](https://taskfile.dev/)
+
+```bash
+git clone https://github.com/shimasan0x00/diffff.git
+cd diffff
+task install
+task build
+# ./diffff が生成されます
+```
+
+## 使い方
+
+```bash
+diffff                        # 最新コミットの diff (HEAD~1..HEAD)
+diffff <commit>               # 特定コミットの diff
+diffff <from> <to>            # 2コミット間の diff
+diffff staged                 # ステージング済み変更
+diffff working                # 未ステージング変更
+git diff | diffff             # stdin パイプ入力
+```
+
+### オプション
+
+| フラグ | デフォルト | 説明 |
+|--------|-----------|------|
+| `--port, -p` | `3333` | サーバーポート |
+| `--host` | `127.0.0.1` | バインドアドレス |
+| `--mode, -m` | `split` | 表示モード (`split` / `unified`) |
+| `--no-open` | `false` | ブラウザ自動起動を抑制 |
+| `--no-claude` | `false` | Claude Code 連携を無効化 |
+| `--watch, -w` | `false` | ファイル変更監視 (experimental) |
+
+## 技術スタック
+
+| 領域 | 技術 |
+|------|------|
+| バックエンド | Go 1.25 / Chi v5 / cobra |
+| フロントエンド | React 19 / TypeScript 5.9 / Vite 7 |
+| スタイリング | Tailwind CSS v4 |
+| 状態管理 | Zustand v5 |
+| 構文ハイライト | Shiki (github-dark テーマ) |
+| WebSocket | coder/websocket |
+| テスト | testify / Vitest / React Testing Library |
+
+## 開発
+
+```bash
+# 開発サーバー起動 (Go :3333 + Vite :5173)
+task dev
+
+# テスト
+task test              # 全テスト (Go + Frontend)
+task test:backend      # Go テストのみ (-race 有効)
+task test:frontend     # Vitest のみ
+
+# リント
+task lint
+
+# ビルド成果物削除
+task clean
+```
+
+## ライセンス
+
+[MIT](LICENSE)

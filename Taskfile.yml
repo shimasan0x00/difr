@@ -1,0 +1,87 @@
+version: '3'
+
+vars:
+  BINARY_NAME: diffff
+  WEB_DIR: web
+
+tasks:
+  # === Development ===
+  dev:
+    desc: "Start development servers (Go + Vite)"
+    deps: [dev:backend, dev:frontend]
+
+  dev:backend:
+    desc: "Start Go server with Air (hot reload)"
+    cmds:
+      - air -c .air.toml
+
+  dev:frontend:
+    desc: "Start Vite dev server"
+    dir: "{{.WEB_DIR}}"
+    cmds:
+      - npm run dev
+
+  # === Build ===
+  build:
+    desc: "Build production binary"
+    deps: [build:frontend]
+    cmds:
+      - cp -r {{.WEB_DIR}}/dist internal/embed/dist
+      - go build -tags production -ldflags "-s -w" -o {{.BINARY_NAME}} ./cmd/diffff
+      - rm -rf internal/embed/dist
+
+  build:frontend:
+    desc: "Build frontend assets"
+    dir: "{{.WEB_DIR}}"
+    cmds:
+      - npm ci
+      - npm run build
+
+  # === Test ===
+  test:
+    desc: "Run all tests"
+    cmds:
+      - go test -race ./... -v
+      - cd {{.WEB_DIR}} && npm test
+
+  test:backend:
+    desc: "Run Go tests"
+    cmds:
+      - go test -race ./... -v
+
+  test:frontend:
+    desc: "Run frontend tests"
+    dir: "{{.WEB_DIR}}"
+    cmds:
+      - npm test
+
+  test:coverage:
+    desc: "Run tests with coverage"
+    cmds:
+      - go test -race ./... -coverprofile=coverage.out && go tool cover -html=coverage.out -o coverage.html
+      - cd {{.WEB_DIR}} && npm test -- --coverage
+
+  # === Utilities ===
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - rm -f {{.BINARY_NAME}}
+      - rm -rf {{.WEB_DIR}}/dist
+      - rm -rf internal/embed/dist
+
+  lint:
+    desc: "Run all linters"
+    cmds:
+      - go vet ./...
+      - cd {{.WEB_DIR}} && npm run lint
+
+  lint:backend:
+    desc: "Run Go linters"
+    cmds:
+      - go vet ./...
+
+  install:
+    desc: "Install all dependencies"
+    cmds:
+      - go mod tidy
+      - cd {{.WEB_DIR}} && npm install

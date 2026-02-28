@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"err-session"}
+{"type":"result","subtype":"error_max_turns","session_id":"err-session","stop_reason":"end_turn"}

@@ -1,0 +1,30 @@
+# Go
+tmp/
+diffff
+coverage.out
+coverage.html
+
+# Frontend
+node_modules/
+web/dist/
+
+# Embed (copied at build time)
+internal/embed/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# diffff data
+.diffff/
+
+# Claude
+plan/

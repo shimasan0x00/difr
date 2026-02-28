@@ -1,0 +1,14 @@
+[build]
+  cmd = "go build -o ./tmp/diffff ./cmd/diffff"
+  bin = "./tmp/diffff"
+  delay = 1000
+  exclude_dir = ["web", "tmp", "node_modules", ".git", "plan"]
+  exclude_regex = ["_test\\.go$"]
+  include_ext = ["go"]
+  kill_delay = "0s"
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true

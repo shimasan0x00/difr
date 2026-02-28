@@ -1,0 +1,18 @@
+Here are my review comments:
+
+```json
+[
+  {
+    "filePath": "main.go",
+    "line": 15,
+    "body": "This function is too long. Consider breaking it into smaller functions."
+  },
+  {
+    "filePath": "utils.go",
+    "line": 8,
+    "body": "Missing error handling here."
+  }
+]
+```
+
+Let me know if you have any questions about these suggestions.
