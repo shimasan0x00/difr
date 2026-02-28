@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/shimasan0x00/diffff/internal/comment"
+	"github.com/shimasan0x00/difr/internal/comment"
 )
 
 type createCommentRequest struct {

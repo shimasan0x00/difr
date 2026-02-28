@@ -137,7 +137,7 @@ func TestPersistence_SaveAndLoad(t *testing.T) {
 }
 
 func TestLoad_NonExistentFileReturnsEmptyStore(t *testing.T) {
-	store := NewStore("/tmp/nonexistent-diffff-comments.json")
+	store := NewStore("/tmp/nonexistent-difr-comments.json")
 
 	err := store.Load()
 

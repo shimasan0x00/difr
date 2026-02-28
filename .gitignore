@@ -1,6 +1,6 @@
 # Go
 tmp/
-diffff
+difr
 coverage.out
 coverage.html
 
@@ -23,8 +23,8 @@ internal/embed/dist/
 *.pem
 *.key
 
-# diffff data
-.diffff/
+# difr data
+.difr/
 
 # Claude
 plan/

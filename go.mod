@@ -1,4 +1,4 @@
-module github.com/shimasan0x00/diffff
+module github.com/shimasan0x00/difr
 
 go 1.25.5
 

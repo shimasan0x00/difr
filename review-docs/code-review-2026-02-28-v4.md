@@ -91,7 +91,7 @@ v1-v3 で 66 件の修正が適用済みの状態に対し、新たに **49 件*
 | M-21 | `watcher_test.go:16,24,44...` | `os.WriteFile` のエラーを無視（t-wada 原則 #4 違反） |
 | M-22 | `App.test.tsx` | `loadComments` の fetch 呼び出しが mock されていない |
 | M-23 | Zustand stores 全般 | `claudeStore` / `commentStore` / `diffStore` のストア単体テストが皆無 |
-| M-24 | `.gitignore` | `.env`, `.diffff/`, `.DS_Store` 等のパターン欠落 |
+| M-24 | `.gitignore` | `.env`, `.difr/`, `.DS_Store` 等のパターン欠落 |
 | M-25 | `store_test.go` | 破損 JSON ファイルの `Load` テストなし |
 
 ---
@@ -105,7 +105,7 @@ v1-v3 で 66 件の修正が適用済みの状態に対し、新たに **49 件*
 | L-03 | `embed_prod.go:22-39` | SPA handler の特殊 URL パス（二重スラッシュ等）のエッジケース |
 | L-04 | `handler_diff.go:24-39` | `handleGetDiffFileByPath` がファイル数分の線形探索 |
 | L-05 | `watcher.go` | `events` チャネルが閉じられず consumer goroutine がリーク |
-| L-06 | `index.html:8` | `<title>web</title>` → `<title>diffff</title>` にすべき |
+| L-06 | `index.html:8` | `<title>web</title>` → `<title>difr</title>` にすべき |
 | L-07 | `SyntaxHighlight.tsx:36` | `as never` キャストで型安全性が損なわれている |
 | L-08 | `InlineComment.tsx:16` | `aria-label="Delete"` が不十分（何を削除するか不明） |
 | L-09 | `CommentForm.tsx` | フォーム展開時に textarea へのフォーカス移動なし |

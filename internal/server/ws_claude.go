@@ -11,7 +11,7 @@ import (
 	"regexp"
 
 	"github.com/coder/websocket"
-	"github.com/shimasan0x00/diffff/internal/claude"
+	"github.com/shimasan0x00/difr/internal/claude"
 )
 
 // validSessionID matches UUID-like or alphanumeric session IDs from Claude CLI.

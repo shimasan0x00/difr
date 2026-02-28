@@ -84,7 +84,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#0d1117]">
       <header className="border-b border-gray-700 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">diffff</h1>
+        <h1 className="text-xl font-semibold text-white">difr</h1>
         <div className="flex items-center gap-3">
           <div className="flex bg-[#161b22] rounded border border-gray-700">
             <button

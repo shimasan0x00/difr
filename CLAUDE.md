@@ -1,4 +1,4 @@
-# diffff - プロジェクトドキュメント
+# difr - プロジェクトドキュメント
 
 ## 概要
 
@@ -22,8 +22,8 @@ GitHub/Azure DevOps 等のプラットフォームに依存しない、ローカ
 ## ディレクトリ構成
 
 ```
-diffff/
-├── cmd/diffff/
+difr/
+├── cmd/difr/
 │   └── main.go                     # エントリポイント
 ├── internal/
 │   ├── cli/
@@ -99,7 +99,7 @@ diffff/
 │   ├── package.json
 │   ├── vite.config.ts              # React + Tailwind + proxy設定
 │   └── vitest.config.ts            # jsdom環境, setupFiles
-├── docs/
+├── review-docs/
 │   ├── code-review-2026-02-28.md         # コードレビュー v1 (25件修正)
 │   ├── code-review-2026-02-28-v2.md      # コードレビュー v2 (22件修正)
 │   ├── code-review-2026-02-28-v3.md      # コードレビュー v3 (19件修正)
@@ -118,12 +118,12 @@ diffff/
 ## CLI使用方法
 
 ```bash
-diffff                        # 最新コミットのdiff (HEAD~1..HEAD)
-diffff <commit>               # 特定コミットのdiff
-diffff <from> <to>            # 2コミット間のdiff
-diffff staged                 # ステージング済み変更
-diffff working                # 未ステージング変更
-git diff | diffff             # stdin パイプ入力
+difr                        # 最新コミットのdiff (HEAD~1..HEAD)
+difr <commit>               # 特定コミットのdiff
+difr <from> <to>            # 2コミット間のdiff
+difr staged                 # ステージング済み変更
+difr working                # 未ステージング変更
+git diff | difr             # stdin パイプ入力
 
 # オプション
 --port, -p 3333               # サーバーポート
@@ -158,7 +158,7 @@ task install                  # 全依存インストール
 ## アーキテクチャ
 
 ```
-[ユーザー] → diffff CLI (cobra)
+[ユーザー] → difr CLI (cobra)
                 ├── 引数/stdin解析 → DiffRequest
                 ├── git diff実行 → rawDiff文字列
                 └── HTTPサーバー起動 (Chi)

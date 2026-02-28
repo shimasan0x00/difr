@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shimasan0x00/diffff/internal/git"
-	"github.com/shimasan0x00/diffff/internal/server"
-	"github.com/shimasan0x00/diffff/internal/watcher"
+	"github.com/shimasan0x00/difr/internal/git"
+	"github.com/shimasan0x00/difr/internal/server"
+	"github.com/shimasan0x00/difr/internal/watcher"
 	"github.com/spf13/cobra"
 )
 
@@ -24,9 +24,9 @@ func NewRootCmd() *cobra.Command {
 	var cfg Config
 
 	rootCmd := &cobra.Command{
-		Use:   "diffff [flags] [commit | from to | staged | working]",
+		Use:   "difr [flags] [commit | from to | staged | working]",
 		Short: "Local code review tool with AI assistance",
-		Long:  `diffff is a platform-independent code review tool that visualizes git diffs in a web browser with Claude Code integration.`,
+		Long:  `difr is a platform-independent code review tool that visualizes git diffs in a web browser with Claude Code integration.`,
 		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(cmd, args, &cfg)
@@ -87,7 +87,7 @@ func run(cmd *cobra.Command, args []string, cfg *Config) error {
 		return fmt.Errorf("creating server: %w", err)
 	}
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	fmt.Printf("Starting diffff on http://%s (mode: %s)\n", addr, cfg.Mode)
+	fmt.Printf("Starting difr on http://%s (mode: %s)\n", addr, cfg.Mode)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {

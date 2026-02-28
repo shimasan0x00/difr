@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/shimasan0x00/diffff/internal/diff"
+	"github.com/shimasan0x00/difr/internal/diff"
 )
 
 func (s *Server) handleGetDiff(w http.ResponseWriter, r *http.Request) {

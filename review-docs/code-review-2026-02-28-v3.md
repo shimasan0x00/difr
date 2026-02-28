@@ -58,7 +58,7 @@ v1 で 25件、v2 で 22件を修正済み。今回の包括的レビュー（Go
 
 ### 再帰的ディレクトリ監視 (#12)
 - `filepath.WalkDir` でサブディレクトリも自動追加
-- `.git`, `node_modules`, `vendor`, `dist`, `.diffff` 等をスキップ
+- `.git`, `node_modules`, `vendor`, `dist`, `.difr` 等をスキップ
 
 ## テスト結果
 

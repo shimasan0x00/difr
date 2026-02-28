@@ -74,7 +74,7 @@ var skipDirs = map[string]bool{
 	"node_modules": true,
 	"vendor":       true,
 	"dist":         true,
-	".diffff":      true,
+	".difr":        true,
 }
 
 // addRecursive adds dir and all subdirectories to the watcher,

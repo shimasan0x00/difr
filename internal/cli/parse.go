@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/shimasan0x00/diffff/internal/diff"
+	"github.com/shimasan0x00/difr/internal/diff"
 )
 
 // ParseDiffRequest parses CLI arguments and stdin into a DiffRequest.

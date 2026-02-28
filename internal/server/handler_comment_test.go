@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shimasan0x00/diffff/internal/comment"
+	"github.com/shimasan0x00/difr/internal/comment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

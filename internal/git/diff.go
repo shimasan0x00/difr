@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/shimasan0x00/diffff/internal/diff"
+	"github.com/shimasan0x00/difr/internal/diff"
 )
 
 const maxStdinSize = 100 * 1024 * 1024 // 100MB

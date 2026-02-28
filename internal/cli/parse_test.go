@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shimasan0x00/diffff/internal/diff"
+	"github.com/shimasan0x00/difr/internal/diff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  BINARY_NAME: diffff
+  BINARY_NAME: difr
   WEB_DIR: web
 
 tasks:
@@ -27,7 +27,7 @@ tasks:
     deps: [build:frontend]
     cmds:
       - cp -r {{.WEB_DIR}}/dist internal/embed/dist
-      - go build -tags production -ldflags "-s -w" -o {{.BINARY_NAME}} ./cmd/diffff
+      - go build -tags production -ldflags "-s -w" -o {{.BINARY_NAME}} ./cmd/difr
       - rm -rf internal/embed/dist
 
   build:frontend:

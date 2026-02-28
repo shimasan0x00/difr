@@ -91,7 +91,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('diffff')).toBeInTheDocument()
+      expect(screen.getByText('difr')).toBeInTheDocument()
     })
   })
 

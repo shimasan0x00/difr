@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/shimasan0x00/diffff/internal/diff"
+import "github.com/shimasan0x00/difr/internal/diff"
 
 // Config holds the CLI configuration.
 type Config struct {

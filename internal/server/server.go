@@ -10,10 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/shimasan0x00/diffff/internal/claude"
-	"github.com/shimasan0x00/diffff/internal/comment"
-	"github.com/shimasan0x00/diffff/internal/diff"
-	feembed "github.com/shimasan0x00/diffff/internal/embed"
+	"github.com/shimasan0x00/difr/internal/claude"
+	"github.com/shimasan0x00/difr/internal/comment"
+	"github.com/shimasan0x00/difr/internal/diff"
+	feembed "github.com/shimasan0x00/difr/internal/embed"
 )
 
 // Server holds the HTTP server configuration and dependencies.
@@ -84,7 +84,7 @@ func New(rawDiff string, opts ...Option) (*Server, error) {
 		return nil, fmt.Errorf("parsing diff: %w", err)
 	}
 
-	commentPath := filepath.Join(cfg.workDir, ".diffff", "comments.json")
+	commentPath := filepath.Join(cfg.workDir, ".difr", "comments.json")
 	cs := comment.NewStore(commentPath)
 	if err := cs.Load(); err != nil {
 		return nil, fmt.Errorf("loading comments: %w", err)
