@@ -6,6 +6,8 @@ interface FileListPanelProps {
   commentsByFile: Map<string, Comment[]>
   selectedFile: string | null
   onSelectFile: (path: string) => void
+  expanded?: boolean
+  onToggle?: () => void
 }
 
 const statusColors: Record<FileStatus, string> = {
@@ -15,15 +17,17 @@ const statusColors: Record<FileStatus, string> = {
   renamed: 'text-blue-400',
 }
 
-export function FileListPanel({ files, commentsByFile, selectedFile, onSelectFile }: FileListPanelProps) {
-  const [expanded, setExpanded] = useState(true)
+export function FileListPanel({ files, commentsByFile, selectedFile, onSelectFile, expanded: controlledExpanded, onToggle }: FileListPanelProps) {
+  const [internalExpanded, setInternalExpanded] = useState(true)
+  const expanded = controlledExpanded ?? internalExpanded
+  const toggleExpanded = onToggle ?? (() => setInternalExpanded(!internalExpanded))
 
   return (
-    <div className="border border-gray-700 rounded-md overflow-hidden">
+    <div className="border-b border-gray-700 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-gray-700">
         <button
           type="button"
-          onClick={() => setExpanded(!expanded)}
+          onClick={toggleExpanded}
           aria-expanded={expanded}
           aria-label="Toggle file list"
           className="flex items-center gap-2 text-sm text-gray-200 hover:text-white"

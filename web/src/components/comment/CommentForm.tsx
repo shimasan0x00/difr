@@ -16,6 +16,13 @@ export function CommentForm({ onSubmit, onCancel, saving = false, initialBody }:
     setBody('')
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
+
   return (
     <div className="p-3 bg-[#161b22] border border-gray-700 rounded-md space-y-2">
       <textarea
@@ -25,6 +32,7 @@ export function CommentForm({ onSubmit, onCancel, saving = false, initialBody }:
         aria-label="Comment body"
         value={body}
         onChange={(e) => setBody(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <div className="flex gap-2 justify-end">
         <button

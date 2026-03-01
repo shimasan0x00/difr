@@ -43,4 +43,31 @@ describe('ExportButton', () => {
     await user.click(screen.getByRole('button', { name: /export/i }))
     expect(screen.queryByRole('link', { name: /markdown/i })).not.toBeInTheDocument()
   })
+
+  it('closes dropdown when clicking outside', async () => {
+    const user = userEvent.setup()
+    render(
+      <div>
+        <ExportButton />
+        <button type="button">Outside</button>
+      </div>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    expect(screen.getByRole('link', { name: /markdown/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /outside/i }))
+    expect(screen.queryByRole('link', { name: /markdown/i })).not.toBeInTheDocument()
+  })
+
+  it('does not close dropdown when clicking inside dropdown', async () => {
+    const user = userEvent.setup()
+    render(<ExportButton />)
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    const markdownLink = screen.getByRole('link', { name: /markdown/i })
+
+    await user.click(markdownLink)
+    expect(screen.getByRole('link', { name: /markdown/i })).toBeInTheDocument()
+  })
 })
