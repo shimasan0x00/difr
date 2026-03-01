@@ -43,6 +43,7 @@ type serverConfig struct {
 	noClaude      bool
 	viewMode      string
 	claudeTimeout time.Duration
+	claudeRunner  claude.Runner
 }
 
 const defaultClaudeTimeout = 5 * time.Minute
@@ -65,6 +66,11 @@ func WithViewMode(mode string) Option {
 // WithClaudeTimeout sets the timeout for Claude CLI operations.
 func WithClaudeTimeout(d time.Duration) Option {
 	return func(c *serverConfig) { c.claudeTimeout = d }
+}
+
+// WithClaudeRunner injects a custom Claude Runner (e.g. for testing).
+func WithClaudeRunner(r claude.Runner) Option {
+	return func(c *serverConfig) { c.claudeRunner = r }
 }
 
 // New creates a new server with the given raw diff content.
@@ -121,8 +127,10 @@ func New(rawDiff string, opts ...Option) (*Server, error) {
 		wsConns:       make(map[*websocket.Conn]struct{}),
 	}
 
-	// Claude CLI integration (non-fatal if unavailable)
-	if !cfg.noClaude {
+	// Claude CLI integration: prefer injected runner, then auto-detect
+	if cfg.claudeRunner != nil {
+		s.claudeRunner = cfg.claudeRunner
+	} else if !cfg.noClaude {
 		if client, err := claude.NewClient(); err == nil {
 			s.claudeRunner = client
 		} else {

@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import { createHighlighter, type Highlighter, type ThemedToken } from 'shiki'
+import { createHighlighter, type BundledLanguage, type Highlighter, type ThemedToken } from 'shiki'
 
 let highlighterPromise: Promise<Highlighter> | null = null
 
@@ -42,7 +42,7 @@ export const HighlightedLine = memo(function HighlightedLine({ code, language }:
           return
         }
         const result = highlighter.codeToTokens(code, {
-          lang: language,
+          lang: language as BundledLanguage,
           theme: 'github-dark',
         })
         if (!cancelled && result.tokens.length > 0) {

@@ -13,7 +13,7 @@ interface DiffViewerProps {
 }
 
 export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment }: DiffViewerProps) {
-  const displayPath = file.newPath !== '/dev/null' ? file.newPath : file.oldPath
+  const displayPath = file.newPath && file.newPath !== '/dev/null' ? file.newPath : file.oldPath
 
   return (
     <div className="border border-gray-700 rounded-md overflow-hidden">
