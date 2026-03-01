@@ -83,4 +83,40 @@ describe('CommentForm', () => {
     expect(button).toBeDisabled()
     expect(button).toHaveTextContent('Saving...')
   })
+
+  it('submits on Ctrl+Enter', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<CommentForm onSubmit={onSubmit} onCancel={vi.fn()} />)
+
+    const textarea = screen.getByPlaceholderText(/comment/i)
+    await user.type(textarea, 'Ctrl enter comment')
+    await user.keyboard('{Control>}{Enter}{/Control}')
+
+    expect(onSubmit).toHaveBeenCalledWith('Ctrl enter comment')
+  })
+
+  it('submits on Cmd+Enter (Meta)', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<CommentForm onSubmit={onSubmit} onCancel={vi.fn()} />)
+
+    const textarea = screen.getByPlaceholderText(/comment/i)
+    await user.type(textarea, 'Meta enter comment')
+    await user.keyboard('{Meta>}{Enter}{/Meta}')
+
+    expect(onSubmit).toHaveBeenCalledWith('Meta enter comment')
+  })
+
+  it('does not submit on plain Enter', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<CommentForm onSubmit={onSubmit} onCancel={vi.fn()} />)
+
+    const textarea = screen.getByPlaceholderText(/comment/i)
+    await user.type(textarea, 'no submit')
+    await user.keyboard('{Enter}')
+
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
 })

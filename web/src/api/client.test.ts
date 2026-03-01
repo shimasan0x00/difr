@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fetchDiff, fetchComments, createComment, updateComment, deleteComment } from './client'
+import { fetchDiff, fetchComments, createComment, updateComment, deleteComment, fetchViewMode } from './client'
 
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
@@ -136,6 +136,23 @@ describe('extractErrorMessage (via API functions)', () => {
     } as Response)
 
     await expect(fetchDiff()).rejects.toThrow('Failed to fetch diff: 403')
+  })
+})
+
+describe('fetchViewMode', () => {
+  it('returns mode string on success', async () => {
+    fetchSpy.mockResolvedValue(mockResponse({ mode: 'unified' }))
+
+    const result = await fetchViewMode()
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/diff/mode', { signal: undefined })
+    expect(result).toBe('unified')
+  })
+
+  it('throws on non-OK response', async () => {
+    fetchSpy.mockResolvedValue(mockResponse(null, 500))
+
+    await expect(fetchViewMode()).rejects.toThrow('Failed to fetch view mode: 500')
   })
 })
 

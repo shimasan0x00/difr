@@ -134,4 +134,20 @@ describe('FileListPanel', () => {
 
     expect(screen.queryByText('main.go')).not.toBeInTheDocument()
   })
+
+  it('hides file list in controlled mode when expanded is false', () => {
+    render(
+      <FileListPanel
+        files={mockFiles}
+        commentsByFile={new Map()}
+        selectedFile={null}
+        onSelectFile={vi.fn()}
+        expanded={false}
+        onToggle={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByText('main.go')).not.toBeInTheDocument()
+    expect(screen.queryByText('utils.go')).not.toBeInTheDocument()
+  })
 })

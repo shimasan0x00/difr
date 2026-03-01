@@ -18,6 +18,13 @@ export async function fetchDiff(signal?: AbortSignal): Promise<DiffResult> {
   return res.json()
 }
 
+export async function fetchViewMode(signal?: AbortSignal): Promise<string> {
+  const res = await fetch('/api/diff/mode', { signal })
+  if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to fetch view mode'))
+  const data: { mode: string } = await res.json()
+  return data.mode
+}
+
 export async function fetchComments(filePath?: string): Promise<Comment[]> {
   const params = filePath ? `?file=${encodeURIComponent(filePath)}` : ''
   const res = await fetch(`/api/comments${params}`)

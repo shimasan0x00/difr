@@ -1,10 +1,22 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export function ExportButton() {
   const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleMouseDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [open])
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen(!open)}

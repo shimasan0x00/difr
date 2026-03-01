@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import App from './App'
+import App, { buildReviewContent } from './App'
 import { useDiffStore } from './stores/diffStore'
-import type { DiffResult } from './api/types'
+import type { DiffFile, DiffResult } from './api/types'
 
 const mockDiffResult: DiffResult = {
   files: [
@@ -31,6 +31,32 @@ const mockDiffResult: DiffResult = {
   stats: { additions: 1, deletions: 1 },
 }
 
+function mockFetchByUrl(diffResult: DiffResult | null, diffStatus = 200) {
+  return (url: string | URL | Request) => {
+    const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url
+    if (urlStr === '/api/diff') {
+      return Promise.resolve({
+        ok: diffStatus >= 200 && diffStatus < 300,
+        status: diffStatus,
+        json: async () => diffResult,
+      } as Response)
+    }
+    if (urlStr === '/api/diff/mode') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ mode: 'split' }),
+      } as Response)
+    }
+    if (urlStr === '/api/comments') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [],
+      } as Response)
+    }
+    return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+  }
+}
+
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
@@ -57,10 +83,7 @@ describe('App', () => {
   })
 
   it('displays diff files after successful fetch', async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockDiffResult,
-    } as Response)
+    fetchSpy.mockImplementation(mockFetchByUrl(mockDiffResult) as typeof fetch)
 
     render(<App />)
 
@@ -71,10 +94,7 @@ describe('App', () => {
   })
 
   it('displays error message on fetch failure', async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-    } as Response)
+    fetchSpy.mockImplementation(mockFetchByUrl(null, 500) as typeof fetch)
 
     render(<App />)
 
@@ -84,10 +104,7 @@ describe('App', () => {
   })
 
   it('renders header with application title', async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockDiffResult,
-    } as Response)
+    fetchSpy.mockImplementation(mockFetchByUrl(mockDiffResult) as typeof fetch)
 
     render(<App />)
 
@@ -97,10 +114,7 @@ describe('App', () => {
   })
 
   it('displays stats summary bar with file count and additions/deletions', async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockDiffResult,
-    } as Response)
+    fetchSpy.mockImplementation(mockFetchByUrl(mockDiffResult) as typeof fetch)
 
     render(<App />)
 
@@ -124,10 +138,7 @@ describe('App', () => {
       ],
       stats: { additions: 3, deletions: 2 },
     }
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      json: async () => multiFileResult,
-    } as Response)
+    fetchSpy.mockImplementation(mockFetchByUrl(multiFileResult) as typeof fetch)
 
     render(<App />)
 
@@ -137,15 +148,141 @@ describe('App', () => {
   })
 
   it('shows empty state message when no changes exist', async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ files: [], stats: { additions: 0, deletions: 0 } }),
-    } as Response)
+    const emptyResult = { files: [], stats: { additions: 0, deletions: 0 } }
+    fetchSpy.mockImplementation(mockFetchByUrl(emptyResult) as typeof fetch)
 
     render(<App />)
 
     await waitFor(() => {
       expect(screen.getByText('No changes found.')).toBeInTheDocument()
     })
+  })
+
+  it('applies server viewMode on mount', async () => {
+    fetchSpy.mockImplementation(((url: string | URL | Request) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url
+      if (urlStr === '/api/diff') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockDiffResult,
+        } as Response)
+      }
+      if (urlStr === '/api/diff/mode') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ mode: 'unified' }),
+        } as Response)
+      }
+      if (urlStr === '/api/comments') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [],
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    }) as typeof fetch)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(useDiffStore.getState().viewMode).toBe('unified')
+    })
+  })
+})
+
+describe('buildReviewContent', () => {
+  it('includes hunk content with +/- prefixes', () => {
+    const files: DiffFile[] = [
+      {
+        oldPath: 'main.go',
+        newPath: 'main.go',
+        status: 'modified',
+        language: 'go',
+        isBinary: false,
+        hunks: [
+          {
+            oldStart: 1,
+            oldLines: 2,
+            newStart: 1,
+            newLines: 2,
+            header: '1,2 1,2',
+            lines: [
+              { type: 'delete', content: 'old line\n', oldNumber: 1 },
+              { type: 'add', content: 'new line\n', newNumber: 1 },
+              { type: 'context', content: 'same\n', oldNumber: 2, newNumber: 2 },
+            ],
+          },
+        ],
+        stats: { additions: 1, deletions: 1 },
+      },
+    ]
+
+    const result = buildReviewContent(files)
+
+    expect(result).toContain('-old line')
+    expect(result).toContain('+new line')
+    expect(result).toContain(' same')
+  })
+
+  it('includes hunk header', () => {
+    const files: DiffFile[] = [
+      {
+        oldPath: 'main.go',
+        newPath: 'main.go',
+        status: 'modified',
+        language: 'go',
+        isBinary: false,
+        hunks: [
+          {
+            oldStart: 10,
+            oldLines: 5,
+            newStart: 10,
+            newLines: 6,
+            header: '10,5 10,6',
+            lines: [
+              { type: 'add', content: 'added\n', newNumber: 10 },
+            ],
+          },
+        ],
+        stats: { additions: 1, deletions: 0 },
+      },
+    ]
+
+    const result = buildReviewContent(files)
+
+    expect(result).toContain('@@ 10,5 10,6 @@')
+  })
+
+  it('truncates when content exceeds size limit', () => {
+    const longLine = 'x'.repeat(100_000) + '\n'
+    const files: DiffFile[] = Array.from({ length: 20 }, (_, i) => ({
+      oldPath: `file${i}.go`,
+      newPath: `file${i}.go`,
+      status: 'modified' as const,
+      language: 'go',
+      isBinary: false,
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 1,
+          header: '',
+          lines: [{ type: 'add' as const, content: longLine, newNumber: 1 }],
+        },
+      ],
+      stats: { additions: 1, deletions: 0 },
+    }))
+
+    const result = buildReviewContent(files)
+
+    expect(result.length).toBeLessThanOrEqual(900_000)
+    expect(result).toContain('(Diff truncated due to size limit.)')
+  })
+
+  it('returns header only for empty files list', () => {
+    const result = buildReviewContent([])
+
+    expect(result).toBe('Review the following code changes:\n\n')
   })
 })
