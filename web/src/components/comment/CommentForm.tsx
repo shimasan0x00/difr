@@ -4,10 +4,11 @@ interface CommentFormProps {
   onSubmit: (body: string) => void
   onCancel: () => void
   saving?: boolean
+  initialBody?: string
 }
 
-export function CommentForm({ onSubmit, onCancel, saving = false }: CommentFormProps) {
-  const [body, setBody] = useState('')
+export function CommentForm({ onSubmit, onCancel, saving = false, initialBody }: CommentFormProps) {
+  const [body, setBody] = useState(initialBody ?? '')
 
   const handleSubmit = () => {
     if (body.trim() === '' || saving) return
@@ -39,7 +40,7 @@ export function CommentForm({ onSubmit, onCancel, saving = false }: CommentFormP
           disabled={saving}
           className="px-3 py-1 text-sm bg-green-700 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving ? 'Saving...' : 'Add Comment'}
+          {saving ? 'Saving...' : initialBody ? 'Update' : 'Add Comment'}
         </button>
       </div>
     </div>
