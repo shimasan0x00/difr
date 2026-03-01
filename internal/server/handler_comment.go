@@ -4,12 +4,29 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"mime"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shimasan0x00/difr/internal/comment"
 )
+
+// requireJSONContentType validates that the request has a JSON content type.
+func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
+	ct := r.Header.Get("Content-Type")
+	if ct == "" {
+		writeError(w, http.StatusUnsupportedMediaType, "Content-Type header is required")
+		return false
+	}
+	mediaType, _, err := mime.ParseMediaType(ct)
+	if err != nil || mediaType != "application/json" {
+		writeError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+		return false
+	}
+	return true
+}
 
 type createCommentRequest struct {
 	FilePath string `json:"filePath"`
@@ -24,6 +41,9 @@ type updateCommentRequest struct {
 const maxCommentBodySize = 1 << 20 // 1MB
 
 func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
+	if !requireJSONContentType(w, r) {
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxCommentBodySize)
 	var req createCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -72,10 +92,40 @@ func (s *Server) handleListComments(w http.ResponseWriter, r *http.Request) {
 	if comments == nil {
 		comments = []*comment.Comment{}
 	}
+
+	// Optional pagination: ?limit=N&offset=N
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit < 1 {
+			writeError(w, http.StatusBadRequest, "limit must be a positive integer")
+			return
+		}
+		offset := 0
+		if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+			offset, err = strconv.Atoi(offsetStr)
+			if err != nil || offset < 0 {
+				writeError(w, http.StatusBadRequest, "offset must be a non-negative integer")
+				return
+			}
+		}
+		if offset >= len(comments) {
+			comments = []*comment.Comment{}
+		} else {
+			end := offset + limit
+			if end > len(comments) {
+				end = len(comments)
+			}
+			comments = comments[offset:end]
+		}
+	}
+
 	writeJSON(w, http.StatusOK, comments)
 }
 
 func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
+	if !requireJSONContentType(w, r) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxCommentBodySize)

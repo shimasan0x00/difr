@@ -166,3 +166,17 @@ func TestHandleClaudeStatus_ReturnsFalseWhenDisabled(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.False(t, resp["available"])
 }
+
+func TestHandleHealthCheck_ReturnsOK(t *testing.T) {
+	srv := newTestServer(t, "")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "ok", resp["status"])
+}

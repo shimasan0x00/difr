@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,8 +51,13 @@ func setupCommentServer(t *testing.T) *Server {
 // createCommentViaAPI is a test helper that creates a comment through the HTTP API.
 func createCommentViaAPI(t *testing.T, s *Server, filePath string, line int, body string) comment.Comment {
 	t.Helper()
-	payload := `{"filePath":"` + filePath + `","line":` + fmt.Sprintf("%d", line) + `,"body":"` + body + `"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	payload, err := json.Marshal(map[string]any{
+		"filePath": filePath,
+		"line":     line,
+		"body":     body,
+	})
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
@@ -279,6 +283,85 @@ func TestCreateComment_RejectsFilePathNotInDiff(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "filePath is not in the current diff")
+}
+
+func TestCreateComment_RejectsMissingContentType(t *testing.T) {
+	s := setupCommentServer(t)
+
+	payload := `{"filePath":"main.go","line":1,"body":"test"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	// No Content-Type header
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+}
+
+func TestCreateComment_RejectsWrongContentType(t *testing.T) {
+	s := setupCommentServer(t)
+
+	payload := `{"filePath":"main.go","line":1,"body":"test"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+}
+
+func TestUpdateComment_RejectsMissingContentType(t *testing.T) {
+	s := setupCommentServer(t)
+	created := createCommentViaAPI(t, s, "main.go", 1, "original")
+
+	req := httptest.NewRequest(http.MethodPut, "/api/comments/"+created.ID, bytes.NewBufferString(`{"body":"updated"}`))
+	// No Content-Type header
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnsupportedMediaType, w.Code)
+}
+
+func TestListComments_Pagination(t *testing.T) {
+	s := setupCommentServer(t)
+	// Create 5 comments
+	for i := 1; i <= 5; i++ {
+		createCommentViaAPI(t, s, "main.go", i, "comment")
+	}
+
+	// Limit only
+	req := httptest.NewRequest(http.MethodGet, "/api/comments?limit=2", nil)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var comments []*comment.Comment
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &comments))
+	assert.Len(t, comments, 2)
+
+	// Limit + offset
+	req = httptest.NewRequest(http.MethodGet, "/api/comments?limit=2&offset=3", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &comments))
+	assert.Len(t, comments, 2, "should return remaining 2 comments at offset 3")
+
+	// Offset beyond total
+	req = httptest.NewRequest(http.MethodGet, "/api/comments?limit=10&offset=100", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &comments))
+	assert.Empty(t, comments)
+
+	// Invalid limit
+	req = httptest.NewRequest(http.MethodGet, "/api/comments?limit=0", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Invalid offset
+	req = httptest.NewRequest(http.MethodGet, "/api/comments?limit=2&offset=-1", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestExportComments_IncludesContentDisposition(t *testing.T) {

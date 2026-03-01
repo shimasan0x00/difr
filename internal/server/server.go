@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shimasan0x00/difr/internal/claude"
@@ -27,6 +29,10 @@ type Server struct {
 	claudeRunner   claude.Runner
 	viewMode       string
 	claudeTimeout  time.Duration
+
+	// wsConns tracks active WebSocket connections for graceful shutdown.
+	wsMu    sync.Mutex
+	wsConns map[*websocket.Conn]struct{}
 }
 
 // Option configures a Server.
@@ -112,6 +118,7 @@ func New(rawDiff string, opts ...Option) (*Server, error) {
 		commentStore:  cs,
 		viewMode:      cfg.viewMode,
 		claudeTimeout: claudeTimeout,
+		wsConns:       make(map[*websocket.Conn]struct{}),
 	}
 
 	// Claude CLI integration (non-fatal if unavailable)
@@ -135,10 +142,13 @@ func (s *Server) setupRoutes() error {
 	r.Use(middleware.Recoverer)
 
 	r.Route("/api", func(r chi.Router) {
+		r.Get("/health", s.handleHealthCheck)
+
 		r.Get("/diff", s.handleGetDiff)
 		r.Get("/diff/files", s.handleGetDiffFiles)
 		r.Get("/diff/files/*", s.handleGetDiffFileByPath)
 		r.Get("/diff/stats", s.handleGetDiffStats)
+		// View mode is read-only on the server; the frontend manages mode switching via local state.
 		r.Get("/diff/mode", s.handleGetViewMode)
 
 		r.Post("/comments", s.handleCreateComment)
@@ -163,6 +173,11 @@ func (s *Server) setupRoutes() error {
 	return nil
 }
 
+// handleHealthCheck returns a simple health status for monitoring.
+func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 // handleGetViewMode returns the server's configured view mode.
 func (s *Server) handleGetViewMode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"mode": s.viewMode})
@@ -176,4 +191,33 @@ func (s *Server) handleClaudeStatus(w http.ResponseWriter, r *http.Request) {
 // Handler returns the HTTP handler.
 func (s *Server) Handler() http.Handler {
 	return s.router
+}
+
+// registerWSConn tracks a WebSocket connection for graceful shutdown.
+func (s *Server) registerWSConn(conn *websocket.Conn) {
+	s.wsMu.Lock()
+	s.wsConns[conn] = struct{}{}
+	s.wsMu.Unlock()
+}
+
+// unregisterWSConn removes a WebSocket connection from tracking.
+func (s *Server) unregisterWSConn(conn *websocket.Conn) {
+	s.wsMu.Lock()
+	delete(s.wsConns, conn)
+	s.wsMu.Unlock()
+}
+
+// CloseWebSockets gracefully closes all active WebSocket connections.
+func (s *Server) CloseWebSockets() {
+	s.wsMu.Lock()
+	conns := make([]*websocket.Conn, 0, len(s.wsConns))
+	for conn := range s.wsConns {
+		conns = append(conns, conn)
+	}
+	s.wsConns = make(map[*websocket.Conn]struct{})
+	s.wsMu.Unlock()
+
+	for _, conn := range conns {
+		conn.Close(websocket.StatusGoingAway, "server shutting down")
+	}
 }
