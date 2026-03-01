@@ -124,7 +124,7 @@ interface ViewProps {
 
 function InlineComments({
   lineNumber,
-  comments,
+  lineComments,
   onAddComment,
   onDeleteComment,
   onUpdateComment,
@@ -132,7 +132,7 @@ function InlineComments({
   setCommentingLine,
 }: {
   lineNumber: number | undefined
-  comments: Comment[]
+  lineComments: Comment[]
   onAddComment?: (line: number, body: string) => void
   onDeleteComment?: (id: string) => void
   onUpdateComment?: (id: string, body: string) => void
@@ -140,7 +140,6 @@ function InlineComments({
   setCommentingLine: (line: number | null) => void
 }) {
   if (!lineNumber) return null
-  const lineComments = comments.filter((c) => c.line === lineNumber)
   const isCommenting = commentingLine === lineNumber
 
   return (
@@ -172,6 +171,19 @@ function InlineComments({
 function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment }: ViewProps) {
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
 
+  const commentsByLine = useMemo(() => {
+    const map = new Map<number, Comment[]>()
+    for (const c of comments) {
+      const arr = map.get(c.line)
+      if (arr) {
+        arr.push(c)
+      } else {
+        map.set(c.line, [c])
+      }
+    }
+    return map
+  }, [comments])
+
   return (
     <div className="text-sm font-mono">
       {hunks.map((hunk) => (
@@ -182,18 +194,18 @@ function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment,
             </div>
           )}
           {hunk.lines.map((line, j) => {
-            const lineNum = line.newNumber ?? line.oldNumber
+            const lineNum = line.newNumber
             const lineKey = `${line.type}-${line.oldNumber ?? 0}-${line.newNumber ?? 0}-${j}`
             return (
               <div key={lineKey}>
                 <UnifiedLine
                   line={line}
                   language={language}
-                  onClickComment={onAddComment ? () => lineNum && setCommentingLine(lineNum) : undefined}
+                  onClickComment={onAddComment && lineNum ? () => setCommentingLine(lineNum) : undefined}
                 />
                 <InlineComments
                   lineNumber={lineNum}
-                  comments={comments}
+                  lineComments={lineNum ? commentsByLine.get(lineNum) ?? [] : []}
                   onAddComment={onAddComment}
                   onDeleteComment={onDeleteComment}
                   onUpdateComment={onUpdateComment}
@@ -268,6 +280,19 @@ function UnifiedLine({
 function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment }: ViewProps) {
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
 
+  const commentsByLine = useMemo(() => {
+    const map = new Map<number, Comment[]>()
+    for (const c of comments) {
+      const arr = map.get(c.line)
+      if (arr) {
+        arr.push(c)
+      } else {
+        map.set(c.line, [c])
+      }
+    }
+    return map
+  }, [comments])
+
   const pairedLines = useMemo(() => pairLines(hunks), [hunks])
 
   return (
@@ -281,7 +306,7 @@ function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, o
           )
         }
 
-        const lineNum = pair.right?.newNumber ?? pair.left?.newNumber ?? pair.left?.oldNumber
+        const lineNum = pair.right?.newNumber ?? pair.left?.newNumber
         return (
           <div key={`${pair.left?.oldNumber ?? 0}-${pair.right?.newNumber ?? 0}-${i}`}>
             <div className="flex" data-line-type={pair.left?.type ?? pair.right?.type ?? 'context'}>
@@ -293,16 +318,6 @@ function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, o
                 <span className={`flex-1 px-2 whitespace-pre-wrap break-all leading-6 ${pair.left?.type === 'delete' ? 'text-red-300' : 'text-gray-300'}`}>
                   {pair.left ? <HighlightedLine code={pair.left.content} language={language} /> : ''}
                 </span>
-                {onAddComment && pair.left?.type === 'delete' && !pair.right && pair.left.oldNumber && (
-                  <button
-                    type="button"
-                    onClick={() => setCommentingLine(pair.left!.oldNumber!)}
-                    className="w-6 text-center text-transparent group-hover/left:text-blue-400 focus:text-blue-400 hover:text-blue-300 shrink-0 text-xs leading-6"
-                    aria-label="Add comment"
-                  >
-                    +
-                  </button>
-                )}
               </div>
               {/* Right side (new) */}
               <div className={`flex-1 flex border-l border-gray-700 group ${pair.right?.type === 'add' ? 'bg-[#0d2818]' : ''}`}>
@@ -327,7 +342,7 @@ function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, o
             {lineNum && (
               <InlineComments
                 lineNumber={lineNum}
-                comments={comments}
+                lineComments={commentsByLine.get(lineNum) ?? []}
                 onAddComment={onAddComment}
                 onDeleteComment={onDeleteComment}
                 onUpdateComment={onUpdateComment}

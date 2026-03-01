@@ -179,6 +179,69 @@ describe('DiffViewer', () => {
     expect(screen.getByText(/binary/i)).toBeInTheDocument()
   })
 
+  it('does not show comment button on delete-only lines in unified view', () => {
+    const deleteOnlyFile: DiffFile = {
+      oldPath: 'main.go',
+      newPath: 'main.go',
+      status: 'modified',
+      language: 'go',
+      isBinary: false,
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 2,
+          newStart: 1,
+          newLines: 1,
+          header: '',
+          lines: [
+            { type: 'context', content: 'package main', oldNumber: 1, newNumber: 1 },
+            { type: 'delete', content: 'func removed() {}', oldNumber: 2 },
+          ],
+        },
+      ],
+      stats: { additions: 0, deletions: 1 },
+    }
+    render(<DiffViewer file={deleteOnlyFile} viewMode="unified" onAddComment={() => {}} />)
+    const deleteLine = screen.getByText('func removed() {}').closest('[data-line-type]')!
+    expect(deleteLine.querySelector('[aria-label="Add comment"]')).toBeNull()
+  })
+
+  it('does not show comment button on delete-only lines in split view left panel', () => {
+    const deleteOnlyFile: DiffFile = {
+      oldPath: 'main.go',
+      newPath: 'main.go',
+      status: 'modified',
+      language: 'go',
+      isBinary: false,
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 2,
+          newStart: 1,
+          newLines: 1,
+          header: '',
+          lines: [
+            { type: 'context', content: 'package main', oldNumber: 1, newNumber: 1 },
+            { type: 'delete', content: 'func removed() {}', oldNumber: 2 },
+          ],
+        },
+      ],
+      stats: { additions: 0, deletions: 1 },
+    }
+    render(<DiffViewer file={deleteOnlyFile} viewMode="split" onAddComment={() => {}} />)
+    const deleteLine = screen.getByText('func removed() {}').closest('[data-line-type]')!
+    expect(deleteLine.querySelector('[aria-label="Add comment"]')).toBeNull()
+  })
+
+  it('shows comment only on add line, not on delete line with same line number', () => {
+    const fileComments: Comment[] = [
+      { id: 'c1', filePath: 'main.go', line: 2, body: 'Review this change', createdAt: '2026-01-01T00:00:00Z' },
+    ]
+    render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+    // Comment should appear only once - on the add line (newNumber=2), not the delete line (oldNumber=2)
+    expect(screen.getAllByText('Review this change')).toHaveLength(1)
+  })
+
   it('generates unique keys for lines in unified view', () => {
     const fileWithDuplicateTypes: DiffFile = {
       ...mockFile,
