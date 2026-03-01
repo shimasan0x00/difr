@@ -45,9 +45,11 @@ func NewRootCmd() *cobra.Command {
 
 func run(cmd *cobra.Command, args []string, cfg *Config) error {
 	var stdinReader *os.File
-	stat, err := os.Stdin.Stat()
-	if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
-		stdinReader = os.Stdin
+	if len(args) == 0 {
+		stat, err := os.Stdin.Stat()
+		if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+			stdinReader = os.Stdin
+		}
 	}
 
 	diffReq, err := ParseDiffRequest(args, stdinReader)
