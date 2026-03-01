@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/shimasan0x00/difr/internal/diff"
 	"github.com/shimasan0x00/difr/internal/git"
 	"github.com/shimasan0x00/difr/internal/server"
 	"github.com/shimasan0x00/difr/internal/watcher"
@@ -44,12 +46,10 @@ func NewRootCmd() *cobra.Command {
 }
 
 func run(cmd *cobra.Command, args []string, cfg *Config) error {
-	var stdinReader *os.File
-	if len(args) == 0 {
-		stat, err := os.Stdin.Stat()
-		if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
-			stdinReader = os.Stdin
-		}
+	var stdinReader io.Reader
+	stat, err := os.Stdin.Stat()
+	if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+		stdinReader = os.Stdin
 	}
 
 	diffReq, err := ParseDiffRequest(args, stdinReader)
@@ -109,7 +109,7 @@ func run(cmd *cobra.Command, args []string, cfg *Config) error {
 	}
 
 	// Start file watcher if --watch is enabled and not stdin mode
-	if cfg.Watch && stdinReader == nil {
+	if cfg.Watch && diffReq.Mode != diff.DiffModeStdin {
 		w, err := watcher.New(cwd)
 		if err != nil {
 			slog.Warn("File watcher not available", "err", err)
