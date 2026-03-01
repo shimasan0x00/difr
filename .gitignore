@@ -25,6 +25,7 @@ internal/embed/dist/
 
 # difr data
 .difr/
+.diffff/
 
 # Claude
 plan/

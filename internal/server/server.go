@@ -214,6 +214,7 @@ func (s *Server) CloseWebSockets() {
 	for conn := range s.wsConns {
 		conns = append(conns, conn)
 	}
+	s.wsConns = make(map[*websocket.Conn]struct{})
 	s.wsMu.Unlock()
 
 	for _, conn := range conns {

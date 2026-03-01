@@ -25,21 +25,8 @@ import (
 
 // --- E2E Test Helpers ---
 
-// startE2EServer starts a real HTTP server for E2E tests.
-func startE2EServer(t *testing.T, rawDiff string, opts ...Option) (baseURL string) {
-	t.Helper()
-	dir := t.TempDir()
-	allOpts := append([]Option{WithWorkDir(dir), WithNoClaude(true)}, opts...)
-	srv, err := New(rawDiff, allOpts...)
-	require.NoError(t, err)
-
-	ts := httptest.NewServer(srv.Handler())
-	t.Cleanup(ts.Close)
-	return ts.URL
-}
-
-// startE2EServerWithServer starts a real HTTP server and returns both URL and Server.
-func startE2EServerWithServer(t *testing.T, rawDiff string, opts ...Option) (baseURL string, srv *Server) {
+// startE2EServer starts a real HTTP server and returns both URL and Server.
+func startE2EServer(t *testing.T, rawDiff string, opts ...Option) (baseURL string, srv *Server) {
 	t.Helper()
 	dir := t.TempDir()
 	allOpts := append([]Option{WithWorkDir(dir), WithNoClaude(true)}, opts...)
@@ -155,7 +142,7 @@ func TestE2E_DiffWorkflow_GitRepoThroughAPI(t *testing.T) {
 	require.NotEmpty(t, rawDiff, "git diff should produce output")
 
 	// Start E2E server with real diff
-	baseURL := startE2EServer(t, rawDiff)
+	baseURL, _ := startE2EServer(t, rawDiff)
 
 	// Act & Assert: GET /api/diff
 	status, body := httpGet(t, baseURL+"/api/diff")
@@ -223,7 +210,7 @@ index 1234567..0000000
 -
 -func deprecated() {}
 `
-	baseURL := startE2EServer(t, rawDiff)
+	baseURL, _ := startE2EServer(t, rawDiff)
 
 	// Verify file list
 	status, body := httpGet(t, baseURL+"/api/diff/files")
@@ -280,7 +267,7 @@ index 1234567..abcdefg 100644
 +import "fmt"
  func main() {}
 `
-	baseURL := startE2EServer(t, rawDiff)
+	baseURL, _ := startE2EServer(t, rawDiff)
 
 	// Step 1: Create a comment
 	createPayload, err := json.Marshal(map[string]any{
@@ -350,7 +337,7 @@ index 1234567..abcdefg 100644
 
 +func helper() {}
 `
-	baseURL := startE2EServer(t, rawDiff)
+	baseURL, _ := startE2EServer(t, rawDiff)
 
 	// Create comments on different files
 	for _, tc := range []struct {
@@ -520,7 +507,7 @@ index 1234567..abcdefg 100644
 +import "fmt"
  func main() {}
 `
-	baseURL := startE2EServer(t, rawDiff)
+	baseURL, _ := startE2EServer(t, rawDiff)
 
 	tests := []struct {
 		name    string
@@ -553,7 +540,7 @@ index 1234567..abcdefg 100644
 +import "fmt"
  func main() {}
 `
-	baseURL := startE2EServer(t, rawDiff)
+	baseURL, _ := startE2EServer(t, rawDiff)
 
 	// Update nonexistent comment
 	status, _ := httpPut(t, baseURL+"/api/comments/nonexistent", `{"body":"updated"}`)
@@ -572,7 +559,7 @@ index 1234567..abcdefg 100644
 
 func TestE2E_ServerConfig_ViewModeAndClaudeStatus(t *testing.T) {
 	// Start server in unified mode with Claude disabled
-	baseURL, srv := startE2EServerWithServer(t, "", WithViewMode("unified"))
+	baseURL, srv := startE2EServer(t, "", WithViewMode("unified"))
 
 	// Verify view mode
 	status, body := httpGet(t, baseURL+"/api/diff/mode")
