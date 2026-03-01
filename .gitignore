@@ -27,5 +27,9 @@ internal/embed/dist/
 .difr/
 .diffff/
 
+# Playwright
+web/e2e/test-results/
+web/e2e/playwright-report/
+
 # Claude
 plan/
