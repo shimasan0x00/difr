@@ -9,10 +9,13 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/shimasan0x00/difr/internal/claude"
 )
+
+const pingInterval = 30 * time.Second
 
 // validSessionID matches UUID-like or alphanumeric session IDs from Claude CLI.
 var validSessionID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$`)
@@ -44,7 +47,28 @@ func (s *Server) handleWSClaude() http.Handler {
 		defer conn.CloseNow()
 		conn.SetReadLimit(1 << 20) // 1MB max message size
 
+		s.registerWSConn(conn)
+		defer s.unregisterWSConn(conn)
+
 		ctx := r.Context()
+
+		// Start ping/pong keepalive to prevent proxy/NAT timeout
+		pingCtx, pingCancel := context.WithCancel(ctx)
+		defer pingCancel()
+		go func() {
+			ticker := time.NewTicker(pingInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-pingCtx.Done():
+					return
+				case <-ticker.C:
+					if err := conn.Ping(pingCtx); err != nil {
+						return
+					}
+				}
+			}
+		}()
 
 		for {
 			_, data, err := conn.Read(ctx)

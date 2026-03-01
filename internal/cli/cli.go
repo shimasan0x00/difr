@@ -135,6 +135,7 @@ func run(cmd *cobra.Command, args []string, cfg *Config) error {
 		return err
 	case sig := <-shutdownCh:
 		fmt.Printf("\nReceived %s, shutting down...\n", sig)
+		srv.CloseWebSockets()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return httpServer.Shutdown(ctx)

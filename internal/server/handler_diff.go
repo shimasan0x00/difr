@@ -55,7 +55,9 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		slog.Error("writeJSON encode error", "err", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal server error"}`))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
