@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect } from 'vitest'
 import { DiffViewer } from './DiffViewer'
-import type { DiffFile } from '../../api/types'
+import type { Comment, DiffFile } from '../../api/types'
 
 const mockFile: DiffFile = {
   oldPath: 'main.go',
@@ -113,6 +114,59 @@ describe('DiffViewer', () => {
     // Both should be within the split view
     expect(splitView.contains(screen.getByText('func old() {}'))).toBe(true)
     expect(splitView.contains(screen.getByText('func new() {}'))).toBe(true)
+  })
+
+  it('displays comment count badge in file header when comments exist', () => {
+    const fileComments: Comment[] = [
+      { id: 'c1', filePath: 'main.go', line: 2, body: 'Fix this', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'c2', filePath: 'main.go', line: 3, body: 'And this', createdAt: '2026-01-01T00:00:00Z' },
+    ]
+    render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+    expect(screen.getByText('2 comments')).toBeInTheDocument()
+  })
+
+  it('does not display comment badge when no comments exist', () => {
+    render(<DiffViewer file={mockFile} viewMode="unified" comments={[]} />)
+    expect(screen.queryByText(/comment/)).not.toBeInTheDocument()
+  })
+
+  it('uses singular form for single comment badge', () => {
+    const fileComments: Comment[] = [
+      { id: 'c1', filePath: 'main.go', line: 2, body: 'Fix this', createdAt: '2026-01-01T00:00:00Z' },
+    ]
+    render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+    expect(screen.getByText('1 comment')).toBeInTheDocument()
+  })
+
+  it('collapses diff content when file header is clicked', async () => {
+    const user = userEvent.setup()
+    render(<DiffViewer file={mockFile} viewMode="unified" />)
+
+    // Initially expanded - diff lines visible
+    expect(screen.getByText('func new() {}')).toBeInTheDocument()
+
+    // Click header to collapse
+    await user.click(screen.getByRole('button', { name: /toggle/i }))
+    expect(screen.queryByText('func new() {}')).not.toBeInTheDocument()
+  })
+
+  it('expands diff content when collapsed header is clicked again', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<DiffViewer file={mockFile} viewMode="unified" />)
+
+    // Collapse
+    await user.click(screen.getByRole('button', { name: /toggle/i }))
+    expect(container.querySelectorAll('[data-line-type]').length).toBe(0)
+
+    // Expand again
+    await user.click(screen.getByRole('button', { name: /toggle/i }))
+    expect(container.querySelectorAll('[data-line-type]').length).toBeGreaterThan(0)
+  })
+
+  it('sets aria-expanded attribute on file header toggle', () => {
+    render(<DiffViewer file={mockFile} viewMode="unified" />)
+    const toggle = screen.getByRole('button', { name: /toggle/i })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('shows binary file message', () => {

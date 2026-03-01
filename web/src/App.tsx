@@ -4,15 +4,20 @@ import { useDiffStore } from './stores/diffStore'
 import { useClaudeStore } from './stores/claudeStore'
 import { useCommentStore } from './stores/commentStore'
 import { DiffViewer } from './components/diff/DiffViewer'
+import { FileListPanel } from './components/diff/FileListPanel'
+import { ExportButton } from './components/comment/ExportButton'
 import { ChatPanel } from './components/claude/ChatPanel'
 import { ReviewButton } from './components/claude/ReviewButton'
 
 function App() {
   const files = useDiffStore((s) => s.files)
+  const stats = useDiffStore((s) => s.stats)
   const viewMode = useDiffStore((s) => s.viewMode)
   const setViewMode = useDiffStore((s) => s.setViewMode)
   const loading = useDiffStore((s) => s.loading)
   const error = useDiffStore((s) => s.error)
+  const selectedFile = useDiffStore((s) => s.selectedFile)
+  const selectFile = useDiffStore((s) => s.selectFile)
   const setFiles = useDiffStore((s) => s.setFiles)
   const setError = useDiffStore((s) => s.setError)
 
@@ -26,6 +31,7 @@ function App() {
   const comments = useCommentStore((s) => s.comments)
   const commentError = useCommentStore((s) => s.error)
   const addComment = useCommentStore((s) => s.addComment)
+  const updateComment = useCommentStore((s) => s.updateComment)
   const removeComment = useCommentStore((s) => s.removeComment)
   const loadComments = useCommentStore((s) => s.loadComments)
 
@@ -58,6 +64,11 @@ function App() {
     return result
   }, [comments])
 
+  const handleSelectFile = (path: string) => {
+    selectFile(path)
+    document.getElementById(`diff-file-${path}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const handleReview = () => {
     const diffSummary = files
       .map((f) => `${f.newPath || f.oldPath} (${f.status})`)
@@ -86,6 +97,7 @@ function App() {
       <header className="border-b border-gray-700 px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">difr</h1>
         <div className="flex items-center gap-3">
+          {comments.length > 0 && <ExportButton />}
           <div className="flex bg-[#161b22] rounded border border-gray-700">
             <button
               type="button"
@@ -107,6 +119,13 @@ function App() {
           )}
         </div>
       </header>
+      {files.length > 0 && (
+        <div className="px-4 py-2 border-b border-gray-700 text-sm text-gray-400">
+          <span>{files.length} file{files.length !== 1 ? 's' : ''} changed</span>
+          {stats.additions > 0 && <span className="text-green-400 ml-2">+{stats.additions}</span>}
+          {stats.deletions > 0 && <span className="text-red-400 ml-2">-{stats.deletions}</span>}
+        </div>
+      )}
       <div className="flex">
         <main className="flex-1 p-4 space-y-4">
           {commentError && (
@@ -117,18 +136,29 @@ function App() {
           {files.length === 0 ? (
             <p className="text-gray-400">No changes found.</p>
           ) : (
-            files.map((file) => (
-              <DiffViewer
-                key={file.newPath || file.oldPath}
-                file={file}
-                viewMode={viewMode}
-                comments={commentsByFile.get(file.newPath || file.oldPath) ?? []}
-                onAddComment={(line, body) =>
-                  addComment(file.newPath || file.oldPath, line, body)
-                }
-                onDeleteComment={removeComment}
+            <>
+              <FileListPanel
+                files={files}
+                commentsByFile={commentsByFile}
+                selectedFile={selectedFile}
+                onSelectFile={handleSelectFile}
               />
-            ))
+              {files.map((file) => {
+                const filePath = file.newPath || file.oldPath
+                return (
+                  <div key={filePath} id={`diff-file-${filePath}`}>
+                    <DiffViewer
+                      file={file}
+                      viewMode={viewMode}
+                      comments={commentsByFile.get(filePath) ?? []}
+                      onAddComment={(line, body) => addComment(filePath, line, body)}
+                      onDeleteComment={removeComment}
+                      onUpdateComment={updateComment}
+                    />
+                  </div>
+                )
+              })}
+            </>
           )}
         </main>
         {claudeConnected && (

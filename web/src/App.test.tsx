@@ -65,7 +65,8 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('file.go')).toBeInTheDocument()
+      // file.go appears in both FileListPanel and DiffViewer
+      expect(screen.getAllByText('file.go').length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -92,6 +93,46 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByText('difr')).toBeInTheDocument()
+    })
+  })
+
+  it('displays stats summary bar with file count and additions/deletions', async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockDiffResult,
+    } as Response)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1 file changed')).toBeInTheDocument()
+      // +1/-1 appears in both stats summary bar and file header
+      expect(screen.getAllByText('+1').length).toBeGreaterThanOrEqual(2)
+      expect(screen.getAllByText('-1').length).toBeGreaterThanOrEqual(2)
+    })
+  })
+
+  it('pluralizes file count in stats summary bar', async () => {
+    const multiFileResult: DiffResult = {
+      files: [
+        mockDiffResult.files[0],
+        {
+          ...mockDiffResult.files[0],
+          oldPath: 'other.go',
+          newPath: 'other.go',
+        },
+      ],
+      stats: { additions: 3, deletions: 2 },
+    }
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => multiFileResult,
+    } as Response)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('2 files changed')).toBeInTheDocument()
     })
   })
 

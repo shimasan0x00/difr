@@ -10,32 +10,45 @@ interface DiffViewerProps {
   comments?: Comment[]
   onAddComment?: (line: number, body: string) => void
   onDeleteComment?: (id: string) => void
+  onUpdateComment?: (id: string, body: string) => void
 }
 
-export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment }: DiffViewerProps) {
+export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment, onUpdateComment }: DiffViewerProps) {
+  const [expanded, setExpanded] = useState(true)
   const displayPath = file.newPath && file.newPath !== '/dev/null' ? file.newPath : file.oldPath
 
   return (
     <div className="border border-gray-700 rounded-md overflow-hidden">
-      <FileHeader path={displayPath} stats={file.stats} status={file.status} />
-      {file.isBinary ? (
-        <div className="px-4 py-3 text-gray-400 text-sm">Binary file not shown</div>
-      ) : viewMode === 'split' ? (
-        <SplitView
-          hunks={file.hunks}
-          language={file.language}
-          comments={comments}
-          onAddComment={onAddComment}
-          onDeleteComment={onDeleteComment}
-        />
-      ) : (
-        <UnifiedView
-          hunks={file.hunks}
-          language={file.language}
-          comments={comments}
-          onAddComment={onAddComment}
-          onDeleteComment={onDeleteComment}
-        />
+      <FileHeader
+        path={displayPath}
+        stats={file.stats}
+        status={file.status}
+        commentCount={comments.length}
+        expanded={expanded}
+        onToggle={() => setExpanded(!expanded)}
+      />
+      {expanded && (
+        file.isBinary ? (
+          <div className="px-4 py-3 text-gray-400 text-sm">Binary file not shown</div>
+        ) : viewMode === 'split' ? (
+          <SplitView
+            hunks={file.hunks}
+            language={file.language}
+            comments={comments}
+            onAddComment={onAddComment}
+            onDeleteComment={onDeleteComment}
+            onUpdateComment={onUpdateComment}
+          />
+        ) : (
+          <UnifiedView
+            hunks={file.hunks}
+            language={file.language}
+            comments={comments}
+            onAddComment={onAddComment}
+            onDeleteComment={onDeleteComment}
+            onUpdateComment={onUpdateComment}
+          />
+        )
       )}
     </div>
   )
@@ -45,18 +58,36 @@ function FileHeader({
   path,
   stats,
   status,
+  commentCount = 0,
+  expanded = true,
+  onToggle,
 }: {
   path: string
   stats: { additions: number; deletions: number }
   status: FileStatus
+  commentCount?: number
+  expanded?: boolean
+  onToggle?: () => void
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-gray-700">
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label="Toggle file"
+          className="text-gray-400 hover:text-gray-200 text-xs w-4"
+        >
+          <span className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}>&#9654;</span>
+        </button>
         <StatusBadge status={status} />
         <span className="text-sm font-mono text-gray-200">{path}</span>
       </div>
-      <div className="flex gap-2 text-xs">
+      <div className="flex items-center gap-2 text-xs">
+        {commentCount > 0 && (
+          <span className="text-gray-400">{commentCount} comment{commentCount !== 1 ? 's' : ''}</span>
+        )}
         {stats.additions > 0 && (
           <span className="text-green-400">+{stats.additions}</span>
         )}
@@ -88,6 +119,7 @@ interface ViewProps {
   comments: Comment[]
   onAddComment?: (line: number, body: string) => void
   onDeleteComment?: (id: string) => void
+  onUpdateComment?: (id: string, body: string) => void
 }
 
 function InlineComments({
@@ -95,6 +127,7 @@ function InlineComments({
   comments,
   onAddComment,
   onDeleteComment,
+  onUpdateComment,
   commentingLine,
   setCommentingLine,
 }: {
@@ -102,6 +135,7 @@ function InlineComments({
   comments: Comment[]
   onAddComment?: (line: number, body: string) => void
   onDeleteComment?: (id: string) => void
+  onUpdateComment?: (id: string, body: string) => void
   commentingLine: number | null
   setCommentingLine: (line: number | null) => void
 }) {
@@ -113,7 +147,11 @@ function InlineComments({
     <>
       {lineComments.map((c) => (
         <div key={c.id} className="px-4 py-1">
-          <InlineComment comment={c} onDelete={(id) => onDeleteComment?.(id)} />
+          <InlineComment
+            comment={c}
+            onDelete={(id) => onDeleteComment?.(id)}
+            onUpdate={onUpdateComment}
+          />
         </div>
       ))}
       {isCommenting && onAddComment && (
@@ -131,7 +169,7 @@ function InlineComments({
   )
 }
 
-function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment }: ViewProps) {
+function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment }: ViewProps) {
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
 
   return (
@@ -158,6 +196,7 @@ function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment 
                   comments={comments}
                   onAddComment={onAddComment}
                   onDeleteComment={onDeleteComment}
+                  onUpdateComment={onUpdateComment}
                   commentingLine={commentingLine}
                   setCommentingLine={setCommentingLine}
                 />
@@ -226,7 +265,7 @@ function UnifiedLine({
   )
 }
 
-function SplitView({ hunks, language, comments, onAddComment, onDeleteComment }: ViewProps) {
+function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment }: ViewProps) {
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
 
   const pairedLines = useMemo(() => pairLines(hunks), [hunks])
@@ -291,6 +330,7 @@ function SplitView({ hunks, language, comments, onAddComment, onDeleteComment }:
                 comments={comments}
                 onAddComment={onAddComment}
                 onDeleteComment={onDeleteComment}
+                onUpdateComment={onUpdateComment}
                 commentingLine={commentingLine}
                 setCommentingLine={setCommentingLine}
               />
