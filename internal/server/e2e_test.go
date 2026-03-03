@@ -395,11 +395,11 @@ index 1234567..abcdefg 100644
 func TestE2E_Claude_ChatWithSessionReuse(t *testing.T) {
 	// Arrange: Mock Claude runner that returns session ID
 	mockOutput1 := `{"type":"system","subtype":"init","session_id":"e2e-session-1"}
-{"type":"assistant","content":[{"type":"text","text":"Hello from E2E!"}]}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Hello from E2E!"}]},"session_id":"e2e-session-1"}
 {"type":"result","subtype":"success","result":"Hello from E2E!","session_id":"e2e-session-1","stop_reason":"end_turn"}
 `
 	mockOutput2 := `{"type":"system","subtype":"init","session_id":"e2e-session-1"}
-{"type":"assistant","content":[{"type":"text","text":"Session reused!"}]}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Session reused!"}]},"session_id":"e2e-session-1"}
 {"type":"result","subtype":"success","result":"Session reused!","session_id":"e2e-session-1","stop_reason":"end_turn"}
 `
 	callCount := 0
@@ -431,18 +431,8 @@ func TestE2E_Claude_ChatWithSessionReuse(t *testing.T) {
 	assertHasResponseType(t, responses1, "session", "first chat should have session")
 	assertHasResponseType(t, responses1, "done", "first chat should complete")
 
-	// Extract session ID
-	var sessionID string
-	for _, r := range responses1 {
-		if r.Type == "session" {
-			sessionID = r.SessionID
-			break
-		}
-	}
-	require.NotEmpty(t, sessionID, "should get a session ID")
-
-	// Second chat with same session ID
-	msg2 := ChatMessage{Type: "chat", Content: "Follow up", SessionID: sessionID}
+	// Second chat — server should reuse session via -r flag
+	msg2 := ChatMessage{Type: "chat", Content: "Follow up"}
 	require.NoError(t, wsjson.Write(ctx, conn, msg2))
 	responses2 := readWSResponses(t, ctx, conn)
 	assertHasResponseType(t, responses2, "done", "second chat should complete")
@@ -450,12 +440,12 @@ func TestE2E_Claude_ChatWithSessionReuse(t *testing.T) {
 	// Verify session was reused (runner should have received -r flag)
 	assert.Equal(t, 2, callCount, "runner should have been called twice")
 	assert.Contains(t, runner.lastArgs, "-r", "second call should include -r flag for session resume")
-	assert.Contains(t, runner.lastArgs, sessionID, "second call should include session ID")
+	assert.Contains(t, runner.lastArgs, "e2e-session-1", "second call should include session ID")
 }
 
 func TestE2E_Claude_ReviewFlow(t *testing.T) {
 	mockOutput := `{"type":"system","subtype":"init","session_id":"review-e2e"}
-{"type":"assistant","content":[{"type":"text","text":"Code looks good overall."}]}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Code looks good overall."}]},"session_id":"review-e2e"}
 {"type":"result","subtype":"success","result":"Code looks good overall.","session_id":"review-e2e","stop_reason":"end_turn"}
 `
 	dir := t.TempDir()
@@ -514,7 +504,6 @@ index 1234567..abcdefg 100644
 		payload string
 	}{
 		{"empty filePath", `{"filePath":"","line":1,"body":"test"}`},
-		{"zero line number", `{"filePath":"main.go","line":0,"body":"test"}`},
 		{"negative line number", `{"filePath":"main.go","line":-1,"body":"test"}`},
 		{"path traversal", `{"filePath":"../../../etc/passwd","line":1,"body":"test"}`},
 		{"file not in diff", `{"filePath":"notindiff.go","line":1,"body":"test"}`},

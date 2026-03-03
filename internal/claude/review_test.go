@@ -47,3 +47,23 @@ func TestParseReviewComments_ReturnsEmptyForInvalidJSON(t *testing.T) {
 
 	assert.Empty(t, comments)
 }
+
+func TestExtractJSONArray_SkipsPastNonMatchingArrays(t *testing.T) {
+	// First array has no filePath, second one does.
+	// Ensures the scanner advances past the first array without rescanning.
+	input := `Some text [1, 2, 3] and then [{"filePath":"a.go","line":1,"body":"ok"}]`
+
+	comments := ParseReviewComments(input)
+
+	require.Len(t, comments, 1)
+	assert.Equal(t, "a.go", comments[0].FilePath)
+}
+
+func TestExtractJSONArray_HandlesNestedArrays(t *testing.T) {
+	input := `[[1,2],[3,4]] then [{"filePath":"b.go","line":5,"body":"nested"}]`
+
+	comments := ParseReviewComments(input)
+
+	require.Len(t, comments, 1)
+	assert.Equal(t, "b.go", comments[0].FilePath)
+}

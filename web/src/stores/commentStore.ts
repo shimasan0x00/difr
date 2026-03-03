@@ -11,6 +11,7 @@ interface CommentState {
   updateComment: (id: string, body: string) => Promise<void>
   removeComment: (id: string) => Promise<void>
   loadComments: (filePath?: string) => Promise<void>
+  clearAll: () => Promise<void>
 }
 
 export const useCommentStore = create<CommentState>((set, get) => ({
@@ -58,6 +59,15 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       set({ comments, loading: false })
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to load comments', loading: false })
+    }
+  },
+  clearAll: async () => {
+    const prev = get().comments
+    set({ comments: [], error: null })
+    try {
+      await api.deleteAllComments()
+    } catch {
+      set({ comments: prev })
     }
   },
 }))

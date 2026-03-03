@@ -133,6 +133,25 @@ func (s *Store) Delete(id string) error {
 	return nil
 }
 
+// DeleteAll removes all comments and resets the ID counter.
+func (s *Store) DeleteAll() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	oldComments := s.comments
+	oldNextID := s.nextID
+
+	s.comments = make(map[string]*Comment)
+	s.nextID = 1
+
+	if err := s.saveLocked(); err != nil {
+		s.comments = oldComments
+		s.nextID = oldNextID
+		return fmt.Errorf("persisting delete all: %w", err)
+	}
+	return nil
+}
+
 // Save persists all comments to disk. Thread-safe.
 // Uses a write lock to prevent concurrent filesystem writes.
 // Note: CUD operations (Create/Update/Delete) auto-persist, so explicit Save()
@@ -199,7 +218,7 @@ func (s *Store) Load() error {
 	s.comments = make(map[string]*Comment)
 	maxID := 0
 	for _, c := range comments {
-		if c.ID == "" || c.FilePath == "" || c.Line < 1 {
+		if c.ID == "" || c.FilePath == "" || c.Line < 0 {
 			continue // skip invalid comments
 		}
 		s.comments[c.ID] = c

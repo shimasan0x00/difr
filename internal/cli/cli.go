@@ -41,6 +41,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&cfg.NoOpen, "no-open", false, "Don't open browser automatically")
 	rootCmd.Flags().BoolVar(&cfg.NoClaude, "no-claude", false, "Disable Claude Code integration")
 	rootCmd.Flags().BoolVarP(&cfg.Watch, "watch", "w", false, "Watch for file changes (experimental, log only)")
+	rootCmd.Flags().DurationVar(&cfg.ClaudeTimeout, "claude-timeout", 0, "Timeout for Claude CLI operations (e.g. 10m, 300s). Default: 5m")
 
 	return rootCmd
 }
@@ -79,12 +80,32 @@ func run(cmd *cobra.Command, args []string, cfg *Config) error {
 		return fmt.Errorf("getting diff: %w", err)
 	}
 
+	// Build comparison metadata
+	meta := BuildDiffMeta(diffReq)
+
+	// Get tracked files (skip for stdin mode)
+	var trackedFiles []string
+	if diffReq.Mode != diff.DiffModeStdin {
+		if files, err := gitClient.ListTrackedFiles(context.Background()); err == nil {
+			trackedFiles = files
+		} else {
+			slog.Warn("Failed to list tracked files", "err", err)
+		}
+	}
+
 	// Start server with CLI flags
-	srv, err := server.New(rawDiff,
+	var serverOpts []server.Option
+	serverOpts = append(serverOpts,
 		server.WithWorkDir(cwd),
 		server.WithNoClaude(cfg.NoClaude),
 		server.WithViewMode(cfg.Mode),
+		server.WithDiffMeta(meta),
+		server.WithTrackedFiles(trackedFiles),
 	)
+	if cfg.ClaudeTimeout > 0 {
+		serverOpts = append(serverOpts, server.WithClaudeTimeout(cfg.ClaudeTimeout))
+	}
+	srv, err := server.New(rawDiff, serverOpts...)
 	if err != nil {
 		return fmt.Errorf("creating server: %w", err)
 	}
@@ -97,9 +118,12 @@ func run(cmd *cobra.Command, args []string, cfg *Config) error {
 	}
 
 	httpServer := &http.Server{
-		Handler:      srv.Handler(),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		Handler:     srv.Handler(),
+		ReadTimeout: 30 * time.Second,
+		// WriteTimeout is intentionally 0 (no timeout) because WebSocket
+		// connections are long-lived. Per-request timeouts are handled at the
+		// handler level (e.g. claudeTimeout for Claude CLI operations).
+		WriteTimeout: 0,
 		IdleTimeout:  120 * time.Second,
 	}
 

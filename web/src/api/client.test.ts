@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fetchDiff, fetchComments, createComment, updateComment, deleteComment, fetchViewMode } from './client'
+import { fetchDiff, fetchComments, createComment, updateComment, deleteComment, fetchViewMode, fetchFileContent } from './client'
 
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
@@ -169,5 +169,32 @@ describe('deleteComment', () => {
     fetchSpy.mockResolvedValue(mockResponse(null, 404))
 
     await expect(deleteComment('c99')).rejects.toThrow('Failed to delete comment: 404')
+  })
+})
+
+describe('fetchFileContent', () => {
+  it('returns file content on success', async () => {
+    const data = { path: 'main.go', content: 'package main\n', size: 13 }
+    fetchSpy.mockResolvedValue(mockResponse(data))
+
+    const result = await fetchFileContent('main.go')
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/files/main.go', { signal: undefined })
+    expect(result).toEqual(data)
+  })
+
+  it('encodes path with slashes correctly', async () => {
+    const data = { path: 'src/pkg/main.go', content: 'package pkg\n', size: 12 }
+    fetchSpy.mockResolvedValue(mockResponse(data))
+
+    await fetchFileContent('src/pkg/main.go')
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/files/src/pkg/main.go', { signal: undefined })
+  })
+
+  it('throws on non-OK response', async () => {
+    fetchSpy.mockResolvedValue(mockResponse(null, 404))
+
+    await expect(fetchFileContent('missing.go')).rejects.toThrow('Failed to fetch file content: 404')
   })
 })

@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { DiffViewer } from './DiffViewer'
+import { _clearTokenCache } from './SyntaxHighlight'
 import type { Comment, DiffFile } from '../../api/types'
 
 const mockFile: DiffFile = {
@@ -51,6 +52,10 @@ const newFile: DiffFile = {
 }
 
 describe('DiffViewer', () => {
+  beforeEach(() => {
+    _clearTokenCache()
+  })
+
   it('renders file header with path', () => {
     render(<DiffViewer file={mockFile} viewMode="unified" />)
     expect(screen.getByText('main.go')).toBeInTheDocument()
@@ -242,6 +247,54 @@ describe('DiffViewer', () => {
     expect(screen.getAllByText('Review this change')).toHaveLength(1)
   })
 
+  it('shows review checkbox when onToggleReviewed is provided', () => {
+    const onToggle = vi.fn()
+    render(<DiffViewer file={mockFile} viewMode="unified" onToggleReviewed={onToggle} />)
+    expect(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i })).toBeInTheDocument()
+  })
+
+  it('does not show review checkbox when onToggleReviewed is not provided', () => {
+    render(<DiffViewer file={mockFile} viewMode="unified" />)
+    expect(screen.queryByRole('checkbox', { name: /as reviewed/i })).not.toBeInTheDocument()
+  })
+
+  it('reflects isReviewed state on checkbox', () => {
+    const onToggle = vi.fn()
+    render(<DiffViewer file={mockFile} viewMode="unified" isReviewed={true} onToggleReviewed={onToggle} />)
+    expect(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i })).toBeChecked()
+  })
+
+  it('calls onToggleReviewed when checkbox is clicked', async () => {
+    const user = userEvent.setup()
+    const onToggle = vi.fn()
+    render(<DiffViewer file={mockFile} viewMode="unified" onToggleReviewed={onToggle} />)
+
+    await user.click(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i }))
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('collapses diff content when isReviewed transitions from false to true', () => {
+    const onToggle = vi.fn()
+    const { rerender } = render(<DiffViewer file={mockFile} viewMode="split" isReviewed={false} onToggleReviewed={onToggle} />)
+
+    expect(screen.getByText('func new() {}')).toBeInTheDocument()
+
+    rerender(<DiffViewer file={mockFile} viewMode="split" isReviewed={true} onToggleReviewed={onToggle} />)
+
+    expect(screen.queryByText('func new() {}')).not.toBeInTheDocument()
+  })
+
+  it('does not collapse when unchecking reviewed', () => {
+    const onToggle = vi.fn()
+    const { rerender } = render(<DiffViewer file={mockFile} viewMode="split" isReviewed={true} onToggleReviewed={onToggle} />)
+
+    expect(screen.getByTestId('split-view')).toBeInTheDocument()
+
+    rerender(<DiffViewer file={mockFile} viewMode="split" isReviewed={false} onToggleReviewed={onToggle} />)
+
+    expect(screen.getByTestId('split-view')).toBeInTheDocument()
+  })
+
   it('generates unique keys for lines in unified view', () => {
     const fileWithDuplicateTypes: DiffFile = {
       ...mockFile,
@@ -268,5 +321,107 @@ describe('DiffViewer', () => {
     // All 4 lines should render without React key warnings
     const lines = container.querySelectorAll('[data-line-type]')
     expect(lines.length).toBe(4)
+  })
+
+  describe('file-level comments', () => {
+    it('shows add file comment button when onAddComment is provided', () => {
+      render(<DiffViewer file={mockFile} viewMode="unified" onAddComment={vi.fn()} />)
+      expect(screen.getByRole('button', { name: 'Add file comment' })).toBeInTheDocument()
+    })
+
+    it('does not show add file comment button when onAddComment is not provided', () => {
+      render(<DiffViewer file={mockFile} viewMode="unified" />)
+      expect(screen.queryByRole('button', { name: 'Add file comment' })).not.toBeInTheDocument()
+    })
+
+    it('shows comment form when add file comment button is clicked', async () => {
+      const user = userEvent.setup()
+      render(<DiffViewer file={mockFile} viewMode="unified" onAddComment={vi.fn()} />)
+
+      await user.click(screen.getByRole('button', { name: 'Add file comment' }))
+
+      expect(screen.getByPlaceholderText(/comment/i)).toBeInTheDocument()
+    })
+
+    it('calls onAddComment with line=0 when file comment is submitted', async () => {
+      const user = userEvent.setup()
+      const onAddComment = vi.fn()
+      render(<DiffViewer file={mockFile} viewMode="unified" onAddComment={onAddComment} />)
+
+      await user.click(screen.getByRole('button', { name: 'Add file comment' }))
+      await user.type(screen.getByPlaceholderText(/comment/i), 'General feedback')
+      await user.click(screen.getByRole('button', { name: 'Add Comment' }))
+
+      expect(onAddComment).toHaveBeenCalledWith(0, 'General feedback')
+    })
+
+    it('displays file-level comments above diff content', () => {
+      const fileComments: Comment[] = [
+        { id: 'c1', filePath: 'main.go', line: 0, body: 'General feedback', createdAt: '2026-01-01T00:00:00Z' },
+      ]
+      render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+      expect(screen.getByText('General feedback')).toBeInTheDocument()
+      expect(screen.getByText('File')).toBeInTheDocument()
+    })
+
+    it('separates file-level comments from line comments', () => {
+      const mixedComments: Comment[] = [
+        { id: 'c1', filePath: 'main.go', line: 0, body: 'File comment', createdAt: '2026-01-01T00:00:00Z' },
+        { id: 'c2', filePath: 'main.go', line: 2, body: 'Line comment', createdAt: '2026-01-01T00:00:00Z' },
+      ]
+      render(<DiffViewer file={mockFile} viewMode="unified" comments={mixedComments} />)
+      expect(screen.getByText('File comment')).toBeInTheDocument()
+      expect(screen.getByText('Line comment')).toBeInTheDocument()
+    })
+  })
+
+  describe('file-level copy button', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('shows copy button when comments exist', () => {
+      const fileComments: Comment[] = [
+        { id: 'c1', filePath: 'main.go', line: 2, body: 'Fix this', createdAt: '2026-01-01T00:00:00Z' },
+      ]
+      render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+      expect(screen.getByRole('button', { name: 'Copy file comments' })).toBeInTheDocument()
+    })
+
+    it('does not show copy button when no comments', () => {
+      render(<DiffViewer file={mockFile} viewMode="unified" comments={[]} />)
+      expect(screen.queryByRole('button', { name: 'Copy file comments' })).not.toBeInTheDocument()
+    })
+
+    it('copies formatted comments to clipboard on click', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(writeText)
+
+      const fileComments: Comment[] = [
+        { id: 'c1', filePath: 'main.go', line: 10, body: 'Fix this', createdAt: '2026-01-01T00:00:00Z' },
+        { id: 'c2', filePath: 'main.go', line: 25, body: 'And this', createdAt: '2026-01-01T00:00:00Z' },
+      ]
+      render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+
+      await user.click(screen.getByRole('button', { name: 'Copy file comments' }))
+
+      expect(writeText).toHaveBeenCalledWith(
+        '## main.go\n\n- **Line 10**: Fix this\n- **Line 25**: And this\n',
+      )
+    })
+
+    it('shows Copied! feedback after click', async () => {
+      const user = userEvent.setup()
+      vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+
+      const fileComments: Comment[] = [
+        { id: 'c1', filePath: 'main.go', line: 2, body: 'Fix this', createdAt: '2026-01-01T00:00:00Z' },
+      ]
+      render(<DiffViewer file={mockFile} viewMode="unified" comments={fileComments} />)
+
+      await user.click(screen.getByRole('button', { name: 'Copy file comments' }))
+      expect(screen.getByText('Copied!')).toBeInTheDocument()
+    })
   })
 })

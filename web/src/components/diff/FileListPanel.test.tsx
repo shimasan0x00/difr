@@ -40,19 +40,23 @@ describe('FileListPanel', () => {
         commentsByFile={new Map()}
         selectedFile={null}
         onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
     expect(screen.getByText('Files (2)')).toBeInTheDocument()
   })
 
-  it('renders file paths', () => {
+  it('renders file paths in Changed tab', () => {
     render(
       <FileListPanel
         files={mockFiles}
         commentsByFile={new Map()}
         selectedFile={null}
         onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
@@ -67,6 +71,8 @@ describe('FileListPanel', () => {
         commentsByFile={new Map()}
         selectedFile={null}
         onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
@@ -82,6 +88,8 @@ describe('FileListPanel', () => {
         commentsByFile={mockCommentsByFile}
         selectedFile={null}
         onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
@@ -95,6 +103,8 @@ describe('FileListPanel', () => {
         commentsByFile={new Map()}
         selectedFile="main.go"
         onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
@@ -111,6 +121,8 @@ describe('FileListPanel', () => {
         commentsByFile={new Map()}
         selectedFile={null}
         onSelectFile={onSelectFile}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
@@ -127,6 +139,8 @@ describe('FileListPanel', () => {
         commentsByFile={new Map()}
         selectedFile={null}
         onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
@@ -144,10 +158,178 @@ describe('FileListPanel', () => {
         onSelectFile={vi.fn()}
         expanded={false}
         onToggle={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
       />
     )
 
     expect(screen.queryByText('main.go')).not.toBeInTheDocument()
     expect(screen.queryByText('utils.go')).not.toBeInTheDocument()
+  })
+
+  it('shows Changed and All Files tabs when trackedFiles provided', () => {
+    render(
+      <FileListPanel
+        files={mockFiles}
+        trackedFiles={['main.go', 'utils.go', 'readme.md']}
+        commentsByFile={new Map()}
+        selectedFile={null}
+        onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('tab', { name: /changed/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /all files/i })).toBeInTheDocument()
+  })
+
+  it('calls onTabChange when All Files tab is clicked', async () => {
+    const user = userEvent.setup()
+    const onTabChange = vi.fn()
+    render(
+      <FileListPanel
+        files={mockFiles}
+        trackedFiles={['main.go', 'utils.go', 'readme.md']}
+        commentsByFile={new Map()}
+        selectedFile={null}
+        onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={onTabChange}
+      />
+    )
+
+    await user.click(screen.getByRole('tab', { name: /all files/i }))
+
+    expect(onTabChange).toHaveBeenCalledWith('all')
+  })
+
+  it('shows directory tree when All Files tab is active', () => {
+    render(
+      <FileListPanel
+        files={mockFiles}
+        trackedFiles={['main.go', 'utils.go', 'readme.md']}
+        commentsByFile={new Map()}
+        selectedFile={null}
+        onSelectFile={vi.fn()}
+        activeTab="all"
+        onTabChange={vi.fn()}
+      />
+    )
+
+    // All tracked files should be visible (flat since no directories)
+    expect(screen.getByText('main.go')).toBeInTheDocument()
+    expect(screen.getByText('utils.go')).toBeInTheDocument()
+    expect(screen.getByText('readme.md')).toBeInTheDocument()
+  })
+
+  it('does not show tabs when trackedFiles is empty', () => {
+    render(
+      <FileListPanel
+        files={mockFiles}
+        commentsByFile={new Map()}
+        selectedFile={null}
+        onSelectFile={vi.fn()}
+        activeTab="changed"
+        onTabChange={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+  })
+
+  describe('reviewed checkboxes', () => {
+    it('renders checkboxes when onToggleReviewed is provided', () => {
+      render(
+        <FileListPanel
+          files={mockFiles}
+          commentsByFile={new Map()}
+          selectedFile={null}
+          onSelectFile={vi.fn()}
+          activeTab="changed"
+          onTabChange={vi.fn()}
+          reviewedFiles={new Set()}
+          onToggleReviewed={vi.fn()}
+        />
+      )
+
+      expect(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /mark utils\.go as reviewed/i })).toBeInTheDocument()
+    })
+
+    it('reflects checked state from reviewedFiles', () => {
+      render(
+        <FileListPanel
+          files={mockFiles}
+          commentsByFile={new Map()}
+          selectedFile={null}
+          onSelectFile={vi.fn()}
+          activeTab="changed"
+          onTabChange={vi.fn()}
+          reviewedFiles={new Set(['main.go'])}
+          onToggleReviewed={vi.fn()}
+        />
+      )
+
+      expect(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i })).toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /mark utils\.go as reviewed/i })).not.toBeChecked()
+    })
+
+    it('calls onToggleReviewed when checkbox is clicked', async () => {
+      const user = userEvent.setup()
+      const onToggleReviewed = vi.fn()
+      render(
+        <FileListPanel
+          files={mockFiles}
+          commentsByFile={new Map()}
+          selectedFile={null}
+          onSelectFile={vi.fn()}
+          activeTab="changed"
+          onTabChange={vi.fn()}
+          reviewedFiles={new Set()}
+          onToggleReviewed={onToggleReviewed}
+        />
+      )
+
+      await user.click(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i }))
+
+      expect(onToggleReviewed).toHaveBeenCalledWith('main.go')
+    })
+
+    it('does not call onSelectFile when checkbox is clicked', async () => {
+      const user = userEvent.setup()
+      const onSelectFile = vi.fn()
+      render(
+        <FileListPanel
+          files={mockFiles}
+          commentsByFile={new Map()}
+          selectedFile={null}
+          onSelectFile={onSelectFile}
+          activeTab="changed"
+          onTabChange={vi.fn()}
+          reviewedFiles={new Set()}
+          onToggleReviewed={vi.fn()}
+        />
+      )
+
+      await user.click(screen.getByRole('checkbox', { name: /mark main\.go as reviewed/i }))
+
+      expect(onSelectFile).not.toHaveBeenCalled()
+    })
+
+    it('does not render checkboxes when onToggleReviewed is not provided', () => {
+      render(
+        <FileListPanel
+          files={mockFiles}
+          commentsByFile={new Map()}
+          selectedFile={null}
+          onSelectFile={vi.fn()}
+          activeTab="changed"
+          onTabChange={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    })
   })
 })

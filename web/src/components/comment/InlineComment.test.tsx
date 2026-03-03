@@ -88,4 +88,64 @@ describe('InlineComment', () => {
     expect(screen.queryByText('Are you sure?')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
   })
+
+  describe('file-level comment (line=0)', () => {
+    const fileComment: Comment = {
+      id: 'c2',
+      filePath: 'main.go',
+      line: 0,
+      body: 'General feedback',
+      createdAt: '2026-01-01T00:00:00Z',
+    }
+
+    it('shows "File" label instead of line number', () => {
+      render(<InlineComment comment={fileComment} onDelete={vi.fn()} />)
+
+      expect(screen.getByText('File')).toBeInTheDocument()
+      expect(screen.queryByText(/Line 0/)).not.toBeInTheDocument()
+    })
+
+    it('copies without line number for file-level comment', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(writeText)
+
+      render(<InlineComment comment={fileComment} onDelete={vi.fn()} />)
+
+      await user.click(screen.getByRole('button', { name: /copy/i }))
+
+      expect(writeText).toHaveBeenCalledWith('main.go\nGeneral feedback')
+    })
+  })
+
+  describe('copy button', () => {
+    it('renders a copy button', () => {
+      render(<InlineComment comment={mockComment} onDelete={vi.fn()} />)
+
+      expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument()
+    })
+
+    it('copies filePath:line and body to clipboard when clicked', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(writeText)
+
+      render(<InlineComment comment={mockComment} onDelete={vi.fn()} />)
+
+      await user.click(screen.getByRole('button', { name: /copy/i }))
+
+      expect(writeText).toHaveBeenCalledWith('main.go:10\nThis needs refactoring')
+    })
+
+    it('shows "Copied!" feedback after clicking copy', async () => {
+      const user = userEvent.setup()
+      vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+
+      render(<InlineComment comment={mockComment} onDelete={vi.fn()} />)
+
+      await user.click(screen.getByRole('button', { name: /copy/i }))
+
+      expect(screen.getByText('Copied!')).toBeInTheDocument()
+    })
+  })
 })

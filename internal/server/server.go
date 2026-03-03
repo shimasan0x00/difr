@@ -15,6 +15,7 @@ import (
 	"github.com/shimasan0x00/difr/internal/claude"
 	"github.com/shimasan0x00/difr/internal/comment"
 	"github.com/shimasan0x00/difr/internal/diff"
+	"github.com/shimasan0x00/difr/internal/reviewed"
 	feembed "github.com/shimasan0x00/difr/internal/embed"
 )
 
@@ -26,9 +27,16 @@ type Server struct {
 	// Concurrent reads without a lock are safe.
 	fileIndex      map[string]*diff.DiffFile
 	commentStore   *comment.Store
+	reviewedStore  *reviewed.Store
 	claudeRunner   claude.Runner
 	viewMode       string
 	claudeTimeout  time.Duration
+	diffMeta       diff.DiffMeta
+	trackedFiles   []string
+	workDir         string
+	resolvedWorkDir string // symlink-resolved workDir, computed once at init
+	// trackedIndex is built once during initialization for O(1) lookups.
+	trackedIndex   map[string]struct{}
 
 	// wsConns tracks active WebSocket connections for graceful shutdown.
 	wsMu    sync.Mutex
@@ -44,6 +52,8 @@ type serverConfig struct {
 	viewMode      string
 	claudeTimeout time.Duration
 	claudeRunner  claude.Runner
+	diffMeta      diff.DiffMeta
+	trackedFiles  []string
 }
 
 const defaultClaudeTimeout = 5 * time.Minute
@@ -73,6 +83,16 @@ func WithClaudeRunner(r claude.Runner) Option {
 	return func(c *serverConfig) { c.claudeRunner = r }
 }
 
+// WithDiffMeta sets the diff comparison metadata.
+func WithDiffMeta(meta diff.DiffMeta) Option {
+	return func(c *serverConfig) { c.diffMeta = meta }
+}
+
+// WithTrackedFiles sets the list of all git-tracked files.
+func WithTrackedFiles(files []string) Option {
+	return func(c *serverConfig) { c.trackedFiles = files }
+}
+
 // New creates a new server with the given raw diff content.
 func New(rawDiff string, opts ...Option) (*Server, error) {
 	cfg := &serverConfig{
@@ -95,11 +115,18 @@ func New(rawDiff string, opts ...Option) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing diff: %w", err)
 	}
+	result.Meta = cfg.diffMeta
 
 	commentPath := filepath.Join(cfg.workDir, ".difr", "comments.json")
 	cs := comment.NewStore(commentPath)
 	if err := cs.Load(); err != nil {
 		return nil, fmt.Errorf("loading comments: %w", err)
+	}
+
+	reviewedPath := filepath.Join(cfg.workDir, ".difr", "reviewed-files.json")
+	rs := reviewed.NewStore(reviewedPath)
+	if err := rs.Load(); err != nil {
+		return nil, fmt.Errorf("loading reviewed files: %w", err)
 	}
 
 	fileIdx := make(map[string]*diff.DiffFile, len(result.Files))
@@ -118,12 +145,28 @@ func New(rawDiff string, opts ...Option) (*Server, error) {
 		claudeTimeout = defaultClaudeTimeout
 	}
 
+	resolvedWorkDir, err := filepath.EvalSymlinks(cfg.workDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolving workDir symlinks: %w", err)
+	}
+
+	trackedIdx := make(map[string]struct{}, len(cfg.trackedFiles))
+	for _, f := range cfg.trackedFiles {
+		trackedIdx[f] = struct{}{}
+	}
+
 	s := &Server{
 		diffResult:    result,
 		fileIndex:     fileIdx,
 		commentStore:  cs,
+		reviewedStore: rs,
 		viewMode:      cfg.viewMode,
 		claudeTimeout: claudeTimeout,
+		diffMeta:      cfg.diffMeta,
+		trackedFiles:  cfg.trackedFiles,
+		workDir:         cfg.workDir,
+		resolvedWorkDir: resolvedWorkDir,
+		trackedIndex:    trackedIdx,
 		wsConns:       make(map[*websocket.Conn]struct{}),
 	}
 
@@ -156,16 +199,25 @@ func (s *Server) setupRoutes() error {
 		r.Get("/diff/files", s.handleGetDiffFiles)
 		r.Get("/diff/files/*", s.handleGetDiffFileByPath)
 		r.Get("/diff/stats", s.handleGetDiffStats)
+		r.Get("/diff/meta", s.handleGetDiffMeta)
+		r.Get("/diff/tracked-files", s.handleGetTrackedFiles)
 		// View mode is read-only on the server; the frontend manages mode switching via local state.
 		r.Get("/diff/mode", s.handleGetViewMode)
 
 		r.Post("/comments", s.handleCreateComment)
 		r.Get("/comments", s.handleListComments)
+		r.Delete("/comments", s.handleDeleteAllComments)
 		r.Put("/comments/{id}", s.handleUpdateComment)
 		r.Delete("/comments/{id}", s.handleDeleteComment)
 		r.Get("/comments/export", s.handleExportComments)
 
+		r.Get("/reviewed-files", s.handleListReviewedFiles)
+		r.Post("/reviewed-files", s.handleToggleReviewedFile)
+		r.Delete("/reviewed-files", s.handleClearReviewedFiles)
+
 		r.Get("/claude/status", s.handleClaudeStatus)
+
+		r.Get("/files/*", s.handleGetFileContent)
 	})
 
 	r.Handle("/ws/claude", s.handleWSClaude())

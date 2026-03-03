@@ -227,10 +227,20 @@ func TestCreateComment_RejectsPathTraversal(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestCreateComment_RejectsZeroLine(t *testing.T) {
+func TestCreateComment_AcceptsZeroLineAsFileComment(t *testing.T) {
 	s := setupCommentServer(t)
 
-	payload := `{"filePath":"main.go","line":0,"body":"test"}`
+	c := createCommentViaAPI(t, s, "main.go", 0, "file-level comment")
+
+	assert.NotEmpty(t, c.ID)
+	assert.Equal(t, 0, c.Line)
+	assert.Equal(t, "file-level comment", c.Body)
+}
+
+func TestCreateComment_RejectsNegativeLine(t *testing.T) {
+	s := setupCommentServer(t)
+
+	payload := `{"filePath":"main.go","line":-1,"body":"test"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -362,6 +372,26 @@ func TestListComments_Pagination(t *testing.T) {
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestDeleteAllComments_RemovesAll(t *testing.T) {
+	s := setupCommentServer(t)
+	createCommentViaAPI(t, s, "main.go", 1, "first")
+	createCommentViaAPI(t, s, "a.go", 2, "second")
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/comments", nil)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	assert.Equal(t, http.StatusNoContent, w.Code)
+
+	// Verify all comments deleted
+	req = httptest.NewRequest(http.MethodGet, "/api/comments", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	var comments []*comment.Comment
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &comments))
+	assert.Empty(t, comments)
 }
 
 func TestExportComments_IncludesContentDisposition(t *testing.T) {

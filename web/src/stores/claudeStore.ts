@@ -54,13 +54,28 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
   loading: false,
   error: null,
   connected: false,
-  addMessage: (msg) => set((state) => ({ messages: [...state.messages, { ...msg, id: msg.id || nextMessageId() }] })),
+  addMessage: (msg) => set((state) => ({ messages: [...state.messages, { ...msg, id: msg.id || nextMessageId(), sessionId: msg.sessionId ?? state.sessionId }] })),
   setSessionId: (id) => set({ sessionId: id }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
-  clearMessages: () => set({ messages: [], sessionId: null, error: null }),
+  clearMessages: () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const msg: WSMessage = { type: 'clear', content: '' }
+      try {
+        ws.send(JSON.stringify(msg))
+      } catch {
+        // Ignore send errors during clear
+      }
+    }
+    set({ messages: [], sessionId: null, error: null, loading: false })
+  },
 
   connect: () => {
+    // Clear any pending reconnect timer to prevent stale timers from firing
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
 
     // Reset counter only for user-initiated connections (not auto-reconnect)
@@ -69,14 +84,17 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     }
     isReconnecting = false
 
-    ws = new WebSocket(getWsUrl())
+    const socket = new WebSocket(getWsUrl())
+    ws = socket
 
-    ws.onopen = () => {
+    socket.onopen = () => {
+      if (ws !== socket) return // stale connection
       reconnectAttempt = 0
       set({ connected: true, error: null })
     }
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (ws !== socket) return // stale connection
       let resp: WSResponse
       try {
         resp = JSON.parse(event.data)
@@ -99,12 +117,15 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
               const updated = { ...last, content: last.content + resp.content }
               set({ messages: [...msgs.slice(0, -1), updated] })
             } else {
-              set({ messages: [...msgs, { id: nextMessageId(), role: 'assistant', content: resp.content }] })
+              set({ messages: [...msgs, { id: nextMessageId(), role: 'assistant', content: resp.content, sessionId: state.sessionId }] })
             }
           }
           break
         case 'done':
-          set({ loading: false })
+          set((prev) => ({
+            loading: false,
+            sessionId: resp.sessionId || prev.sessionId,
+          }))
           break
         case 'error':
           set({ error: resp.error ?? 'Unknown error', loading: false })
@@ -112,8 +133,9 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       }
     }
 
-    ws.onclose = () => {
-      set({ connected: false })
+    socket.onclose = () => {
+      if (ws !== socket) return // stale connection
+      set({ connected: false, loading: false })
       ws = null
 
       // Auto-reconnect with exponential backoff
@@ -128,7 +150,8 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       }
     }
 
-    ws.onerror = () => {
+    socket.onerror = () => {
+      if (ws !== socket) return // stale connection
       set({ error: 'WebSocket connection failed', connected: false, loading: false })
     }
   },
@@ -143,7 +166,7 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       ws.close()
       ws = null
     }
-    set({ connected: false, messages: [], sessionId: null })
+    set({ connected: false, messages: [], sessionId: null, error: null })
   },
 
   sendChat: (content) => {
@@ -152,9 +175,9 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       return
     }
 
-    const sessionId = get().sessionId
+    const msgId = nextMessageId()
     set((state) => ({
-      messages: [...state.messages, { id: nextMessageId(), role: 'user' as const, content }],
+      messages: [...state.messages, { id: msgId, role: 'user' as const, content, sessionId: state.sessionId }],
       loading: true,
       error: null,
     }))
@@ -162,14 +185,21 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
     const msg: WSMessage = {
       type: 'chat',
       content,
-      sessionId: sessionId ?? undefined,
     }
-    ws.send(JSON.stringify(msg))
+    try {
+      ws.send(JSON.stringify(msg))
+    } catch {
+      set((state) => ({
+        messages: state.messages.filter((m) => m.id !== msgId),
+        error: 'Failed to send message',
+        loading: false,
+      }))
+    }
   },
 
   sendReview: (diffContent) => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      set({ error: 'Not connected to Claude' })
+      set({ error: 'Not connected to Claude', loading: false })
       return
     }
 
@@ -179,6 +209,10 @@ export const useClaudeStore = create<ClaudeState>((set, get) => ({
       type: 'review',
       content: diffContent,
     }
-    ws.send(JSON.stringify(msg))
+    try {
+      ws.send(JSON.stringify(msg))
+    } catch {
+      set({ error: 'Failed to send message', loading: false })
+    }
   },
 }))

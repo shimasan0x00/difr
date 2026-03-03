@@ -34,7 +34,7 @@ task build
 ```bash
 difr                        # 最新コミットの diff (HEAD~1..HEAD)
 difr <commit>               # 特定コミットの diff
-difr <from> <to>            # 2コミット間の diff
+difr <base> <compare>            # 2コミット間の diff
 difr staged                 # ステージング済み変更
 difr working                # 未ステージング変更
 git diff | difr             # stdin パイプ入力

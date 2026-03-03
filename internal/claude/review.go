@@ -46,6 +46,7 @@ func extractJSONArray(text string) string {
 		depth := 0
 		inString := false
 		escaped := false
+		end := -1
 
 		for j := i; j < len(text); j++ {
 			ch := text[j]
@@ -75,18 +76,23 @@ func extractJSONArray(text string) string {
 			case ']':
 				depth--
 				if depth == 0 {
-					candidate := text[i : j+1]
-					if strings.Contains(candidate, `"filePath"`) {
-						return candidate
-					}
-					// Not the right array, continue searching
+					end = j
 					break
 				}
 			}
 
-			if depth == 0 && ch == ']' {
+			if end >= 0 {
 				break
 			}
+		}
+
+		if end >= 0 {
+			candidate := text[i : end+1]
+			if strings.Contains(candidate, `"filePath"`) {
+				return candidate
+			}
+			// Skip past this array to avoid rescanning
+			i = end
 		}
 	}
 	return ""

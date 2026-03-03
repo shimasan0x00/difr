@@ -43,12 +43,18 @@ CLI (cobra) → git diff → HTTPサーバー (Chi)
   ├── /api/diff          DiffResult JSON
   ├── /api/diff/files    ファイル一覧 / 個別取得
   ├── /api/diff/stats    統計情報
+  ├── /api/files/*       ファイルコンテンツ配信 (tracked のみ)
   ├── /api/comments      コメント CRUD + エクスポート
   ├── /api/claude/status Claude CLI 可用性
   ├── /ws/claude         Chat + 自動レビュー (WebSocket)
   └── /*                 フロントエンド (dev: proxy, prod: embed)
 
-React App → Zustand stores → DiffViewer (Split/Unified + Shiki) + CommentForm + ChatPanel
+React App → Zustand stores
+  ├── DiffViewer (Split/Unified + Shiki) + CommentForm
+  ├── FileViewer (未変更ファイル表示 + Shiki)
+  ├── FileListPanel (Changed / All Files タブ)
+  │   └── DirectoryTree (IDE 風ディレクトリツリー)
+  └── ChatPanel
 ```
 
 ## ビルド構成
@@ -65,3 +71,6 @@ React App → Zustand stores → DiffViewer (Split/Unified + Shiki) + CommentFor
 - HTTP タイムアウト: Read 30s / Write 60s / Idle 120s
 - Claude タイムアウト: `WithClaudeTimeout()` でカスタマイズ可（デフォルト5分）
 - `log/slog` 構造化ログ統一
+- ファイルブラウザ: `trackedIndex` (git 管理下ファイルのホワイトリスト) + `filepath.IsLocal()` + symlink 解決でセキュリティ確保。5MB 上限、バイナリ判定 (null バイト + UTF-8 検証)
+- サイドバー: Changed / All Files タブ切り替え。All Files は `buildFileTree()` でフラットパスからツリー構造を構築、`DirectoryTree` で再帰表示
+- FileViewer: 未変更ファイルの全文表示。`fileContentCache` (Zustand Map) でキャッシュ。言語検出は拡張子マッピング (`langMap`)

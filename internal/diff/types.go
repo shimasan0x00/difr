@@ -76,8 +76,16 @@ type FileStats struct {
 	Deletions int `json:"deletions"`
 }
 
+// DiffMeta holds comparison metadata (what is being compared).
+type DiffMeta struct {
+	From string `json:"from"` // e.g. "HEAD~1", "main", "staged"
+	To   string `json:"to"`   // e.g. "HEAD", "feature/xyz", "working"
+	Mode string `json:"mode"` // "commit", "range", "staged", "working", "stdin"
+}
+
 // DiffResult holds the complete parsed diff result.
 type DiffResult struct {
 	Files []DiffFile `json:"files"`
 	Stats FileStats  `json:"stats"`
+	Meta  DiffMeta   `json:"meta"`
 }

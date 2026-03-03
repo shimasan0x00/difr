@@ -3,6 +3,18 @@ import { createHighlighter, type BundledLanguage, type Highlighter, type ThemedT
 
 let highlighterPromise: Promise<Highlighter> | null = null
 
+// Module-level cache: avoid re-running Shiki for the same language:code pair
+const tokenCache = new Map<string, TokenLine>()
+
+function cacheKey(code: string, language: string): string {
+  return `${language}:${code}`
+}
+
+/** Clear the token cache. For testing only. */
+export function _clearTokenCache(): void {
+  tokenCache.clear()
+}
+
 function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
@@ -33,6 +45,13 @@ export const HighlightedLine = memo(function HighlightedLine({ code, language }:
   useEffect(() => {
     let cancelled = false
 
+    const key = cacheKey(code, language)
+    const cached = tokenCache.get(key)
+    if (cached) {
+      setTokenLine(cached)
+      return
+    }
+
     getHighlighter()
       .then((highlighter) => {
         if (cancelled) return
@@ -46,7 +65,9 @@ export const HighlightedLine = memo(function HighlightedLine({ code, language }:
           theme: 'github-dark',
         })
         if (!cancelled && result.tokens.length > 0) {
-          setTokenLine({ tokens: result.tokens[0] })
+          const line = { tokens: result.tokens[0] }
+          tokenCache.set(key, line)
+          setTokenLine(line)
         }
       })
       .catch((err) => {

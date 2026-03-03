@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Comment } from '../../api/types'
 import { CommentForm } from './CommentForm'
 
@@ -11,6 +11,22 @@ interface InlineCommentProps {
 export function InlineComment({ comment, onDelete, onUpdate }: InlineCommentProps) {
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => {
+    return () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }
+  }, [])
+
+  const handleCopy = async () => {
+    const text = comment.line === 0
+      ? `${comment.filePath}\n${comment.body}`
+      : `${comment.filePath}:${comment.line}\n${comment.body}`
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
+  }
 
   if (editing) {
     return (
@@ -28,7 +44,7 @@ export function InlineComment({ comment, onDelete, onUpdate }: InlineCommentProp
   return (
     <div className="p-3 bg-[#161b22] border border-gray-700 rounded-md text-sm">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-gray-500 text-xs">Line {comment.line}</span>
+        <span className="text-gray-500 text-xs">{comment.line === 0 ? 'File' : `Line ${comment.line}`}</span>
         {confirming ? (
           <div className="flex items-center gap-2">
             <span className="text-gray-400 text-xs">Are you sure?</span>
@@ -51,6 +67,14 @@ export function InlineComment({ comment, onDelete, onUpdate }: InlineCommentProp
           </div>
         ) : (
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label="Copy"
+              className="text-gray-500 hover:text-blue-400 text-xs"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
             {onUpdate && (
               <button
                 type="button"

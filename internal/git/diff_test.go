@@ -130,6 +130,45 @@ func TestGetDiff_Range(t *testing.T) {
 	assert.Contains(t, d, "+v2")
 }
 
+func TestGetDiff_Range_MergeBase(t *testing.T) {
+	dir := setupTestRepo(t)
+
+	// 1. Create base commit (common ancestor)
+	addFileAndCommit(t, dir, "file.go", "base\n", "base")
+
+	// 2. Create feature branch from here
+	cmd := exec.Command("git", "checkout", "-b", "feature")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git checkout -b feature: %s", string(out))
+
+	// 3. Go back to test-branch (main equivalent) and advance it
+	cmd = exec.Command("git", "checkout", "test-branch")
+	cmd.Dir = dir
+	out, err = cmd.CombinedOutput()
+	require.NoError(t, err, "git checkout test-branch: %s", string(out))
+	addFileAndCommit(t, dir, "file.go", "main-change\n", "main advance")
+
+	// 4. Switch to feature and add a new file
+	cmd = exec.Command("git", "checkout", "feature")
+	cmd.Dir = dir
+	out, err = cmd.CombinedOutput()
+	require.NoError(t, err, "git checkout feature: %s", string(out))
+	addFileAndCommit(t, dir, "new.go", "feature-change\n", "feature work")
+
+	// 5. Three-dot diff: test-branch...feature should show only feature's changes
+	client := NewClient(dir)
+	d, err := client.GetDiff(context.Background(), diff.DiffRequest{
+		Mode: diff.DiffModeRange,
+		From: "test-branch",
+		To:   "feature",
+	})
+	require.NoError(t, err)
+
+	assert.Contains(t, d, "+feature-change", "feature's addition should appear")
+	assert.NotContains(t, d, "main-change", "main's change should NOT appear in merge-base diff")
+}
+
 func TestGetDiff_SingleCommit(t *testing.T) {
 	dir := setupTestRepo(t)
 	addFileAndCommit(t, dir, "file.go", "v1\n", "v1")

@@ -196,6 +196,27 @@ describe('claudeStore', () => {
       expect(useClaudeStore.getState().loading).toBe(false)
     })
 
+    it('handles done message with sessionId', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+      useClaudeStore.setState({ loading: true })
+
+      mockWsInstance!.simulateMessage({ type: 'done', sessionId: 'sess-from-done' })
+
+      expect(useClaudeStore.getState().loading).toBe(false)
+      expect(useClaudeStore.getState().sessionId).toBe('sess-from-done')
+    })
+
+    it('preserves existing sessionId when done has no sessionId', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+      useClaudeStore.setState({ loading: true, sessionId: 'existing-sess' })
+
+      mockWsInstance!.simulateMessage({ type: 'done' })
+
+      expect(useClaudeStore.getState().sessionId).toBe('existing-sess')
+    })
+
     it('handles error message and sets error state', async () => {
       useClaudeStore.getState().connect()
       await vi.advanceTimersByTimeAsync(10)
@@ -225,6 +246,16 @@ describe('claudeStore', () => {
       mockWsInstance!.simulateClose()
 
       expect(useClaudeStore.getState().connected).toBe(false)
+    })
+
+    it('resets loading to false on close', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+      useClaudeStore.setState({ loading: true })
+
+      mockWsInstance!.simulateClose()
+
+      expect(useClaudeStore.getState().loading).toBe(false)
     })
 
     it('stops reconnecting after MAX_RECONNECT_ATTEMPTS (5) reached', async () => {
@@ -275,6 +306,25 @@ describe('claudeStore', () => {
       expect(useClaudeStore.getState().connected).toBe(false)
     })
 
+    it('clears pending reconnect timer when connect is called manually', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+
+      // Close triggers a reconnect timer (1000ms delay)
+      mockWsInstance!.simulateClose()
+      const closedInstance = mockWsInstance
+
+      // Before timer fires, manually connect
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10) // onopen fires for new connection
+      const manualInstance = mockWsInstance
+      expect(manualInstance).not.toBe(closedInstance)
+
+      // Advance past the old reconnect timer — should NOT create another connection
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(mockWsInstance).toBe(manualInstance)
+    })
+
     it('auto-reconnects with exponential backoff', async () => {
       useClaudeStore.getState().connect()
       await vi.advanceTimersByTimeAsync(10)
@@ -320,7 +370,7 @@ describe('claudeStore', () => {
       expect(sent.content).toBe('Hello Claude')
     })
 
-    it('includes sessionId when available', async () => {
+    it('does not include sessionId in sent message', async () => {
       useClaudeStore.getState().connect()
       await vi.advanceTimersByTimeAsync(10)
       useClaudeStore.setState({ sessionId: 'sess-abc' })
@@ -328,7 +378,9 @@ describe('claudeStore', () => {
       useClaudeStore.getState().sendChat('follow up')
 
       const sent = JSON.parse(mockWsInstance!.sentMessages[0])
-      expect(sent.sessionId).toBe('sess-abc')
+      expect(sent.sessionId).toBeUndefined()
+      expect(sent.type).toBe('chat')
+      expect(sent.content).toBe('follow up')
     })
 
     it('sets error when WebSocket is not connected', () => {
@@ -337,6 +389,42 @@ describe('claudeStore', () => {
       expect(useClaudeStore.getState().messages).toHaveLength(0)
       expect(useClaudeStore.getState().loading).toBe(false)
       expect(useClaudeStore.getState().error).toBe('Not connected to Claude')
+    })
+
+    it('sets error and removes user message when ws.send() throws', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+
+      // Make send throw
+      mockWsInstance!.send = () => { throw new Error('send failed') }
+
+      useClaudeStore.getState().sendChat('hello')
+
+      const state = useClaudeStore.getState()
+      expect(state.error).toBe('Failed to send message')
+      expect(state.loading).toBe(false)
+      expect(state.messages).toHaveLength(0)
+    })
+
+    it('only removes the failed message and keeps existing messages on send failure', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+
+      // Send a successful message first
+      useClaudeStore.getState().sendChat('first message')
+      expect(useClaudeStore.getState().messages).toHaveLength(1)
+      expect(useClaudeStore.getState().messages[0].content).toBe('first message')
+
+      // Make send throw for the second message
+      mockWsInstance!.send = () => { throw new Error('send failed') }
+
+      useClaudeStore.getState().sendChat('failed message')
+
+      const state = useClaudeStore.getState()
+      expect(state.messages).toHaveLength(1)
+      expect(state.messages[0].content).toBe('first message')
+      expect(state.error).toBe('Failed to send message')
+      expect(state.loading).toBe(false)
     })
   })
 
@@ -359,6 +447,70 @@ describe('claudeStore', () => {
 
       expect(useClaudeStore.getState().loading).toBe(false)
       expect(useClaudeStore.getState().error).toBe('Not connected to Claude')
+    })
+
+    it('sets error when ws.send() throws', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+
+      mockWsInstance!.send = () => { throw new Error('send failed') }
+
+      useClaudeStore.getState().sendReview('diff content')
+
+      const state = useClaudeStore.getState()
+      expect(state.error).toBe('Failed to send message')
+      expect(state.loading).toBe(false)
+    })
+  })
+
+  describe('sessionId on messages', () => {
+    it('sendChat attaches current sessionId to user message', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+      useClaudeStore.setState({ sessionId: 'sess-A' })
+
+      useClaudeStore.getState().sendChat('hello')
+
+      expect(useClaudeStore.getState().messages[0].sessionId).toBe('sess-A')
+    })
+
+    it('text response creates assistant message with current sessionId', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+
+      mockWsInstance!.simulateMessage({ type: 'session', sessionId: 'sess-A' })
+      mockWsInstance!.simulateMessage({ type: 'text', content: 'Hi' })
+
+      expect(useClaudeStore.getState().messages[0].sessionId).toBe('sess-A')
+    })
+
+    it('streaming text preserves original sessionId on append', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+      useClaudeStore.setState({ sessionId: 'sess-A' })
+
+      mockWsInstance!.simulateMessage({ type: 'text', content: 'Hello ' })
+      mockWsInstance!.simulateMessage({ type: 'text', content: 'world' })
+
+      const msgs = useClaudeStore.getState().messages
+      expect(msgs).toHaveLength(1)
+      expect(msgs[0].sessionId).toBe('sess-A')
+    })
+
+    it('addMessage defaults to current sessionId when not provided', () => {
+      useClaudeStore.setState({ sessionId: 'sess-B' })
+
+      useClaudeStore.getState().addMessage({ id: 'x', role: 'user', content: 'test' })
+
+      expect(useClaudeStore.getState().messages[0].sessionId).toBe('sess-B')
+    })
+
+    it('addMessage preserves explicit sessionId when provided', () => {
+      useClaudeStore.setState({ sessionId: 'sess-B' })
+
+      useClaudeStore.getState().addMessage({ id: 'x', role: 'user', content: 'test', sessionId: 'sess-A' })
+
+      expect(useClaudeStore.getState().messages[0].sessionId).toBe('sess-A')
     })
   })
 
@@ -383,6 +535,37 @@ describe('claudeStore', () => {
       expect(state.messages).toHaveLength(0)
       expect(state.sessionId).toBeNull()
       expect(state.error).toBeNull()
+    })
+
+    it('clearMessages sends clear message via WebSocket when connected', async () => {
+      useClaudeStore.getState().connect()
+      await vi.advanceTimersByTimeAsync(10)
+      useClaudeStore.setState({
+        messages: [{ id: 'test-1', role: 'user', content: 'hi' }],
+        sessionId: 'sess-1',
+      })
+
+      useClaudeStore.getState().clearMessages()
+
+      expect(mockWsInstance!.sentMessages).toHaveLength(1)
+      const sent = JSON.parse(mockWsInstance!.sentMessages[0])
+      expect(sent.type).toBe('clear')
+      expect(sent.content).toBe('')
+
+      const state = useClaudeStore.getState()
+      expect(state.messages).toHaveLength(0)
+      expect(state.sessionId).toBeNull()
+    })
+
+    it('clearMessages does not send WebSocket message when not connected', () => {
+      useClaudeStore.setState({
+        messages: [{ id: 'test-1', role: 'user', content: 'hi' }],
+      })
+
+      useClaudeStore.getState().clearMessages()
+
+      // No WebSocket instance, so no messages sent
+      expect(useClaudeStore.getState().messages).toHaveLength(0)
     })
   })
 })

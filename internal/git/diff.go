@@ -73,7 +73,7 @@ func (c *Client) buildDiffArgs(req diff.DiffRequest) ([]string, error) {
 		if err := validateRef(req.To); err != nil {
 			return nil, err
 		}
-		return []string{"diff", req.From, req.To, "--"}, nil
+		return []string{"diff", req.From + "..." + req.To, "--"}, nil
 	case diff.DiffModeStaged:
 		return []string{"diff", "--cached", "--"}, nil
 	case diff.DiffModeWorking:

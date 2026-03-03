@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Comment, DiffFile, DiffLine, FileStatus, Hunk } from '../../api/types'
 import { HighlightedLine } from './SyntaxHighlight'
 import { CommentForm } from '../comment/CommentForm'
 import { InlineComment } from '../comment/InlineComment'
+import { formatFileComments } from '../../utils/formatComments'
 
 interface DiffViewerProps {
   file: DiffFile
@@ -11,11 +12,26 @@ interface DiffViewerProps {
   onAddComment?: (line: number, body: string) => void
   onDeleteComment?: (id: string) => void
   onUpdateComment?: (id: string, body: string) => void
+  isReviewed?: boolean
+  onToggleReviewed?: () => void
+  saving?: boolean
 }
 
-export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment, onUpdateComment }: DiffViewerProps) {
+export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment, onUpdateComment, isReviewed, onToggleReviewed, saving }: DiffViewerProps) {
   const [expanded, setExpanded] = useState(true)
+  const [commentingFile, setCommentingFile] = useState(false)
   const displayPath = file.newPath && file.newPath !== '/dev/null' ? file.newPath : file.oldPath
+
+  const prevReviewed = useRef(isReviewed)
+  useEffect(() => {
+    if (isReviewed && !prevReviewed.current) {
+      setExpanded(false)
+    }
+    prevReviewed.current = isReviewed
+  }, [isReviewed])
+
+  const fileComments = useMemo(() => comments.filter(c => c.line === 0), [comments])
+  const lineComments = useMemo(() => comments.filter(c => c.line > 0), [comments])
 
   return (
     <div className="border border-gray-700 rounded-md overflow-hidden">
@@ -23,32 +39,61 @@ export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDele
         path={displayPath}
         stats={file.stats}
         status={file.status}
-        commentCount={comments.length}
+        comments={comments}
         expanded={expanded}
         onToggle={() => setExpanded(!expanded)}
+        isReviewed={isReviewed}
+        onToggleReviewed={onToggleReviewed}
+        onAddFileComment={onAddComment ? () => setCommentingFile(true) : undefined}
       />
       {expanded && (
-        file.isBinary ? (
-          <div className="px-4 py-3 text-gray-400 text-sm">Binary file not shown</div>
-        ) : viewMode === 'split' ? (
-          <SplitView
-            hunks={file.hunks}
-            language={file.language}
-            comments={comments}
-            onAddComment={onAddComment}
-            onDeleteComment={onDeleteComment}
-            onUpdateComment={onUpdateComment}
-          />
-        ) : (
-          <UnifiedView
-            hunks={file.hunks}
-            language={file.language}
-            comments={comments}
-            onAddComment={onAddComment}
-            onDeleteComment={onDeleteComment}
-            onUpdateComment={onUpdateComment}
-          />
-        )
+        <>
+          {(fileComments.length > 0 || commentingFile) && (
+            <div className="px-4 py-2 border-b border-gray-700 space-y-2">
+              {fileComments.map(c => (
+                <InlineComment
+                  key={c.id}
+                  comment={c}
+                  onDelete={(id) => onDeleteComment?.(id)}
+                  onUpdate={onUpdateComment}
+                />
+              ))}
+              {commentingFile && onAddComment && (
+                <CommentForm
+                  onSubmit={(body) => {
+                    onAddComment(0, body)
+                    setCommentingFile(false)
+                  }}
+                  onCancel={() => setCommentingFile(false)}
+                  saving={saving}
+                />
+              )}
+            </div>
+          )}
+          {file.isBinary ? (
+            <div className="px-4 py-3 text-gray-400 text-sm">Binary file not shown</div>
+          ) : viewMode === 'split' ? (
+            <SplitView
+              hunks={file.hunks}
+              language={file.language}
+              comments={lineComments}
+              onAddComment={onAddComment}
+              onDeleteComment={onDeleteComment}
+              onUpdateComment={onUpdateComment}
+              saving={saving}
+            />
+          ) : (
+            <UnifiedView
+              hunks={file.hunks}
+              language={file.language}
+              comments={lineComments}
+              onAddComment={onAddComment}
+              onDeleteComment={onDeleteComment}
+              onUpdateComment={onUpdateComment}
+              saving={saving}
+            />
+          )}
+        </>
       )}
     </div>
   )
@@ -58,17 +103,38 @@ function FileHeader({
   path,
   stats,
   status,
-  commentCount = 0,
+  comments = [],
   expanded = true,
   onToggle,
+  isReviewed,
+  onToggleReviewed,
+  onAddFileComment,
 }: {
   path: string
   stats: { additions: number; deletions: number }
   status: FileStatus
-  commentCount?: number
+  comments?: Comment[]
   expanded?: boolean
   onToggle?: () => void
+  isReviewed?: boolean
+  onToggleReviewed?: () => void
+  onAddFileComment?: () => void
 }) {
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => {
+    return () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }
+  }, [])
+
+  const handleCopyFileComments = useCallback(async () => {
+    const text = formatFileComments(path, comments)
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
+  }, [path, comments])
+
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-gray-700">
       <div className="flex items-center gap-2">
@@ -85,8 +151,37 @@ function FileHeader({
         <span className="text-sm font-mono text-gray-200">{path}</span>
       </div>
       <div className="flex items-center gap-2 text-xs">
-        {commentCount > 0 && (
-          <span className="text-gray-400">{commentCount} comment{commentCount !== 1 ? 's' : ''}</span>
+        {onAddFileComment && (
+          <button
+            type="button"
+            onClick={onAddFileComment}
+            aria-label="Add file comment"
+            className="text-gray-500 hover:text-blue-400"
+          >
+            &#128172;
+          </button>
+        )}
+        {onToggleReviewed && (
+          <input
+            type="checkbox"
+            checked={isReviewed ?? false}
+            onChange={onToggleReviewed}
+            aria-label={`Mark ${path} as reviewed`}
+            className="shrink-0"
+          />
+        )}
+        {comments.length > 0 && (
+          <>
+            <span className="text-gray-400">{comments.length} comment{comments.length !== 1 ? 's' : ''}</span>
+            <button
+              type="button"
+              onClick={handleCopyFileComments}
+              aria-label="Copy file comments"
+              className="text-gray-500 hover:text-blue-400"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </>
         )}
         {stats.additions > 0 && (
           <span className="text-green-400">+{stats.additions}</span>
@@ -120,6 +215,7 @@ interface ViewProps {
   onAddComment?: (line: number, body: string) => void
   onDeleteComment?: (id: string) => void
   onUpdateComment?: (id: string, body: string) => void
+  saving?: boolean
 }
 
 function InlineComments({
@@ -130,6 +226,7 @@ function InlineComments({
   onUpdateComment,
   commentingLine,
   setCommentingLine,
+  saving,
 }: {
   lineNumber: number | undefined
   lineComments: Comment[]
@@ -138,6 +235,7 @@ function InlineComments({
   onUpdateComment?: (id: string, body: string) => void
   commentingLine: number | null
   setCommentingLine: (line: number | null) => void
+  saving?: boolean
 }) {
   if (!lineNumber) return null
   const isCommenting = commentingLine === lineNumber
@@ -161,6 +259,7 @@ function InlineComments({
               setCommentingLine(null)
             }}
             onCancel={() => setCommentingLine(null)}
+            saving={saving}
           />
         </div>
       )}
@@ -168,7 +267,7 @@ function InlineComments({
   )
 }
 
-function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment }: ViewProps) {
+function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment, saving }: ViewProps) {
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
 
   const commentsByLine = useMemo(() => {
@@ -211,6 +310,7 @@ function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment,
                   onUpdateComment={onUpdateComment}
                   commentingLine={commentingLine}
                   setCommentingLine={setCommentingLine}
+                  saving={saving}
                 />
               </div>
             )
@@ -277,7 +377,7 @@ function UnifiedLine({
   )
 }
 
-function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment }: ViewProps) {
+function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, onUpdateComment, saving }: ViewProps) {
   const [commentingLine, setCommentingLine] = useState<number | null>(null)
 
   const commentsByLine = useMemo(() => {
@@ -348,6 +448,7 @@ function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, o
                 onUpdateComment={onUpdateComment}
                 commentingLine={commentingLine}
                 setCommentingLine={setCommentingLine}
+                saving={saving}
               />
             )}
           </div>
