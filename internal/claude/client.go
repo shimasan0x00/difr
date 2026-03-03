@@ -6,7 +6,43 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"sync"
 )
+
+const maxStderrSize = 64 * 1024 // 64KB
+
+// limitedBuffer is a bytes.Buffer that silently discards writes beyond a max size.
+type limitedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+	max int
+}
+
+func (lb *limitedBuffer) Write(p []byte) (int, error) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	remaining := lb.max - lb.buf.Len()
+	if remaining <= 0 {
+		return len(p), nil // discard silently
+	}
+	if len(p) > remaining {
+		p = p[:remaining]
+	}
+	lb.buf.Write(p)
+	return len(p), nil
+}
+
+func (lb *limitedBuffer) Len() int {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	return lb.buf.Len()
+}
+
+func (lb *limitedBuffer) String() string {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	return lb.buf.String()
+}
 
 // PathLooker abstracts exec.LookPath for testing.
 type PathLooker interface {
@@ -66,7 +102,7 @@ func (c *Client) Available() bool {
 type cmdReadCloser struct {
 	io.ReadCloser
 	cmd    *exec.Cmd
-	stderr *bytes.Buffer
+	stderr *limitedBuffer
 }
 
 func (c *cmdReadCloser) Close() error {
@@ -84,8 +120,8 @@ func (c *cmdReadCloser) Close() error {
 // The returned ReadCloser must be closed to avoid zombie processes.
 func (c *Client) Run(ctx context.Context, args []string) (io.ReadCloser, error) {
 	cmd := exec.CommandContext(ctx, c.binPath, args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	stderr := &limitedBuffer{max: maxStderrSize}
+	cmd.Stderr = stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -93,5 +129,5 @@ func (c *Client) Run(ctx context.Context, args []string) (io.ReadCloser, error) 
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	return &cmdReadCloser{ReadCloser: stdout, cmd: cmd, stderr: &stderr}, nil
+	return &cmdReadCloser{ReadCloser: stdout, cmd: cmd, stderr: stderr}, nil
 }

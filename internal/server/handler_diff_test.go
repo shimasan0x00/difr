@@ -135,6 +135,94 @@ func TestHandleGetDiffStats_ReturnsStats(t *testing.T) {
 	assert.Equal(t, 1, stats.Stats.Deletions)
 }
 
+func TestHandleGetDiffMeta_ReturnsMeta(t *testing.T) {
+	dir := t.TempDir()
+	meta := diff.DiffMeta{From: "main", To: "feature/xyz", Mode: "range"}
+	srv, err := New("", WithWorkDir(dir), WithNoClaude(true), WithDiffMeta(meta))
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/diff/meta", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var got diff.DiffMeta
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	assert.Equal(t, "main", got.From)
+	assert.Equal(t, "feature/xyz", got.To)
+	assert.Equal(t, "range", got.Mode)
+}
+
+func TestHandleGetDiffMeta_EmptyMeta(t *testing.T) {
+	srv := newTestServer(t, "")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/diff/meta", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var got diff.DiffMeta
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	assert.Empty(t, got.From)
+	assert.Empty(t, got.To)
+}
+
+func TestHandleGetTrackedFiles_ReturnsFiles(t *testing.T) {
+	dir := t.TempDir()
+	files := []string{"main.go", "utils.go", "README.md"}
+	srv, err := New("", WithWorkDir(dir), WithNoClaude(true), WithTrackedFiles(files))
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/diff/tracked-files", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Files []string `json:"files"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, []string{"main.go", "utils.go", "README.md"}, resp.Files)
+}
+
+func TestHandleGetTrackedFiles_EmptyReturnsEmptyArray(t *testing.T) {
+	srv := newTestServer(t, "")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/diff/tracked-files", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Files []string `json:"files"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Empty(t, resp.Files)
+}
+
+func TestHandleGetDiff_IncludesMeta(t *testing.T) {
+	dir := t.TempDir()
+	meta := diff.DiffMeta{From: "HEAD~1", To: "HEAD", Mode: "commit"}
+	srv, err := New(testDiffRaw, WithWorkDir(dir), WithNoClaude(true), WithDiffMeta(meta))
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/diff", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp diff.DiffResult
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "HEAD~1", resp.Meta.From)
+	assert.Equal(t, "HEAD", resp.Meta.To)
+	assert.Equal(t, "commit", resp.Meta.Mode)
+}
+
 func TestHandleClaudeStatus_ReturnsTrueWhenRunnerAvailable(t *testing.T) {
 	dir := t.TempDir()
 	srv, err := New("", WithWorkDir(dir), WithNoClaude(true))

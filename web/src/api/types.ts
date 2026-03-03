@@ -32,9 +32,16 @@ export interface DiffFile {
   stats: FileStats
 }
 
+export interface DiffMeta {
+  from: string
+  to: string
+  mode: string
+}
+
 export interface DiffResult {
   files: DiffFile[]
   stats: FileStats
+  meta: DiffMeta
 }
 
 export interface Comment {
@@ -46,16 +53,24 @@ export interface Comment {
   updatedAt?: string
 }
 
+export interface FileContent {
+  path: string
+  content: string
+  isBinary?: boolean
+  isTruncated?: boolean
+  size: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  sessionId?: string | null
 }
 
 export interface WSMessage {
-  type: 'chat' | 'review'
+  type: 'chat' | 'review' | 'clear'
   content: string
-  sessionId?: string
 }
 
 export interface WSResponse {

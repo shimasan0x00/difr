@@ -77,6 +77,19 @@ func TestExportJSON_RoundtripsSpecialCharacters(t *testing.T) {
 	assert.Equal(t, "日本語.go", parsed[1].FilePath)
 }
 
+func TestExportMarkdown_FileCommentUsesFileLabel(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 0, Body: "General feedback", CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: "c2", FilePath: "main.go", Line: 10, Body: "Fix this", CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+	}
+
+	md := ExportMarkdown(comments)
+
+	assert.Contains(t, md, "- **File**: General feedback")
+	assert.Contains(t, md, "- **Line 10**: Fix this")
+	assert.NotContains(t, md, "Line 0")
+}
+
 func TestExportJSON_EmptyCommentsReturnsEmptyArray(t *testing.T) {
 	jsonStr, err := ExportJSON([]*Comment{})
 	require.NoError(t, err)

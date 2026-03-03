@@ -251,6 +251,24 @@ func TestGet_ReturnedPointerDoesNotMutateStore(t *testing.T) {
 	assert.Equal(t, "original", got2.Body)
 }
 
+func TestDeleteAll_RemovesAllCommentsAndResetsID(t *testing.T) {
+	store := newTestStore(t)
+
+	_, err := store.Create(&Comment{FilePath: "a.go", Line: 1, Body: "first"})
+	require.NoError(t, err)
+	_, err = store.Create(&Comment{FilePath: "b.go", Line: 2, Body: "second"})
+	require.NoError(t, err)
+
+	require.NoError(t, store.DeleteAll())
+
+	assert.Empty(t, store.List(""))
+
+	// After DeleteAll, next created comment should get c1 again
+	created, err := store.Create(&Comment{FilePath: "c.go", Line: 1, Body: "new"})
+	require.NoError(t, err)
+	assert.Equal(t, "c1", created.ID)
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	dir := t.TempDir()

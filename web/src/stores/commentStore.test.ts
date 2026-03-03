@@ -8,6 +8,7 @@ vi.mock('../api/client', () => ({
   updateComment: vi.fn(),
   deleteComment: vi.fn(),
   fetchComments: vi.fn(),
+  deleteAllComments: vi.fn(),
 }))
 
 import * as api from '../api/client'
@@ -137,6 +138,27 @@ describe('commentStore', () => {
 
       expect(useCommentStore.getState().error).toBe('server error')
       // Comment should still be in list since delete failed
+      expect(useCommentStore.getState().comments).toHaveLength(1)
+    })
+  })
+
+  describe('clearAll', () => {
+    it('clears all comments optimistically', async () => {
+      useCommentStore.setState({ comments: [mockComment] })
+      vi.mocked(api.deleteAllComments).mockResolvedValue(undefined)
+
+      await useCommentStore.getState().clearAll()
+
+      expect(useCommentStore.getState().comments).toHaveLength(0)
+      expect(api.deleteAllComments).toHaveBeenCalled()
+    })
+
+    it('rolls back on API failure', async () => {
+      useCommentStore.setState({ comments: [mockComment] })
+      vi.mocked(api.deleteAllComments).mockRejectedValue(new Error('fail'))
+
+      await useCommentStore.getState().clearAll()
+
       expect(useCommentStore.getState().comments).toHaveLength(1)
     })
   })

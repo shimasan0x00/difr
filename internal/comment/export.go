@@ -38,7 +38,11 @@ func ExportMarkdown(comments []*Comment) string {
 		})
 
 		for _, c := range fileComments {
-			sb.WriteString(fmt.Sprintf("- **Line %d**: %s\n", c.Line, c.Body))
+			if c.Line == 0 {
+				sb.WriteString(fmt.Sprintf("- **File**: %s\n", c.Body))
+			} else {
+				sb.WriteString(fmt.Sprintf("- **Line %d**: %s\n", c.Line, c.Body))
+			}
 		}
 		sb.WriteString("\n")
 	}

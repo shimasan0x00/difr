@@ -8,7 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"regexp"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -17,14 +17,10 @@ import (
 
 const pingInterval = 30 * time.Second
 
-// validSessionID matches UUID-like or alphanumeric session IDs from Claude CLI.
-var validSessionID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$`)
-
 // ChatMessage is a message sent from the client via WebSocket.
 type ChatMessage struct {
-	Type      string `json:"type"`      // "chat" or "review"
-	Content   string `json:"content"`
-	SessionID string `json:"sessionId,omitempty"`
+	Type    string `json:"type"` // "chat", "review", or "clear"
+	Content string `json:"content"`
 }
 
 // WSResponse is a message sent to the client via WebSocket.
@@ -70,6 +66,8 @@ func (s *Server) handleWSClaude() http.Handler {
 			}
 		}()
 
+		var sessionID string
+
 		for {
 			_, data, err := conn.Read(ctx)
 			if err != nil {
@@ -82,12 +80,19 @@ func (s *Server) handleWSClaude() http.Handler {
 				continue
 			}
 
+			// Handle clear message: reset session and acknowledge
+			if msg.Type == "clear" {
+				sessionID = ""
+				writeWS(ctx, conn, WSResponse{Type: "done"})
+				continue
+			}
+
 			if s.claudeRunner == nil {
 				writeWS(ctx, conn, WSResponse{Type: "error", Error: "Claude CLI not available"})
 				continue
 			}
 
-			args, err := buildClaudeArgs(msg)
+			args, err := buildClaudeArgs(msg.Type, msg.Content, sessionID)
 			if err != nil {
 				writeWS(ctx, conn, WSResponse{Type: "error", Error: err.Error()})
 				continue
@@ -101,29 +106,39 @@ func (s *Server) handleWSClaude() http.Handler {
 				continue
 			}
 
-			streamErr := func() error {
+			doneSent, extractedSessionID, streamErr := func() (bool, string, error) {
 				defer reader.Close()
 				defer claudeCancel()
 				return streamClaudeEvents(ctx, conn, reader)
 			}()
+			if extractedSessionID != "" {
+				sessionID = extractedSessionID
+			}
 			if streamErr != nil {
 				writeWS(ctx, conn, WSResponse{Type: "error", Error: streamErr.Error()})
+			} else if !doneSent {
+				writeWS(ctx, conn, WSResponse{Type: "done"})
 			}
 		}
 	})
 }
 
-func buildClaudeArgs(msg ChatMessage) ([]string, error) {
-	args := []string{"-p", msg.Content, "--output-format", "stream-json"}
-
-	if msg.SessionID != "" {
-		if !validSessionID.MatchString(msg.SessionID) {
-			return nil, fmt.Errorf("invalid session ID: %q", msg.SessionID)
-		}
-		args = append([]string{"-r", msg.SessionID}, args...)
+func buildClaudeArgs(msgType, content, sessionID string) ([]string, error) {
+	if msgType != "chat" && msgType != "review" {
+		return nil, fmt.Errorf("unknown message type: %q", msgType)
 	}
 
-	if msg.Type == "review" {
+	if strings.TrimSpace(content) == "" {
+		return nil, fmt.Errorf("content must not be empty")
+	}
+
+	args := []string{"-p", content, "--output-format", "stream-json", "--verbose"}
+
+	if sessionID != "" {
+		args = append([]string{"-r", sessionID}, args...)
+	}
+
+	if msgType == "review" {
 		args = append(args, "--max-turns", "1")
 	}
 
@@ -132,10 +147,14 @@ func buildClaudeArgs(msg ChatMessage) ([]string, error) {
 
 // streamClaudeEvents reads NDJSON from reader line-by-line and sends
 // each event to the WebSocket immediately, enabling real-time streaming.
-func streamClaudeEvents(ctx context.Context, conn *websocket.Conn, reader io.Reader) error {
+// Returns (doneSent, extractedSessionID, error).
+func streamClaudeEvents(ctx context.Context, conn *websocket.Conn, reader io.Reader) (bool, string, error) {
 	const maxLineSize = 1024 * 1024 // 1MB
 	scanner := bufio.NewScanner(reader)
-	scanner.Buffer(make([]byte, 0, maxLineSize), maxLineSize)
+	scanner.Buffer(make([]byte, 4096), maxLineSize)
+
+	var doneSent bool
+	var extractedSessionID string
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -152,35 +171,37 @@ func streamClaudeEvents(ctx context.Context, conn *websocket.Conn, reader io.Rea
 		switch event.Type {
 		case "system":
 			if event.SubType == "init" {
+				extractedSessionID = event.SessionID
 				if err := writeWS(ctx, conn, WSResponse{
 					Type:      "session",
 					SessionID: event.SessionID,
 				}); err != nil {
-					return err
+					return doneSent, extractedSessionID, err
 				}
 			}
 		case "assistant":
-			for _, block := range event.Content {
+			for _, block := range event.ContentBlocks() {
 				if block.Type == "text" {
 					if err := writeWS(ctx, conn, WSResponse{
 						Type:    "text",
 						Content: block.Text,
 					}); err != nil {
-						return err
+						return doneSent, extractedSessionID, err
 					}
 				}
 			}
 		case "result":
+			doneSent = true
 			if err := writeWS(ctx, conn, WSResponse{
 				Type:      "done",
 				Content:   event.Result,
 				SessionID: event.SessionID,
 			}); err != nil {
-				return err
+				return doneSent, extractedSessionID, err
 			}
 		}
 	}
-	return scanner.Err()
+	return doneSent, extractedSessionID, scanner.Err()
 }
 
 func writeWS(ctx context.Context, conn *websocket.Conn, resp WSResponse) error {

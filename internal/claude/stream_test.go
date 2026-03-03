@@ -31,8 +31,8 @@ func TestParseStreamEvents_ParsesAllEventTypes(t *testing.T) {
 
 	// assistant
 	assert.Equal(t, "assistant", events[1].Type)
-	require.NotEmpty(t, events[1].Content)
-	assert.Equal(t, "Here is my review of the code.", events[1].Content[0].Text)
+	require.NotEmpty(t, events[1].ContentBlocks())
+	assert.Equal(t, "Here is my review of the code.", events[1].ContentBlocks()[0].Text)
 
 	// result
 	assert.Equal(t, "result", events[2].Type)

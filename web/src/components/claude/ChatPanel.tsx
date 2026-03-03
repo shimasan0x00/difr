@@ -5,7 +5,7 @@ import type { ChatMessage } from '../../api/types'
 function SimpleMarkdown({ text }: { text: string }) {
   const parts = useMemo(() => {
     const result: { type: 'text' | 'codeblock' | 'code'; content: string; lang?: string }[] = []
-    const codeBlockRe = /```(\w*)\n([\s\S]*?)```/g
+    const codeBlockRe = /```(\w*)\n?([\s\S]*?)```/g
     let lastIndex = 0
     let match: RegExpExecArray | null
 
@@ -66,10 +66,13 @@ interface ChatPanelProps {
   messages: ChatMessage[]
   loading: boolean
   connected?: boolean
+  sessionId?: string | null
+  error?: string | null
   onClear?: () => void
+  onCollapse?: () => void
 }
 
-export function ChatPanel({ onSend, messages, loading, connected, onClear }: ChatPanelProps) {
+export function ChatPanel({ onSend, messages, loading, connected, sessionId, error, onClear, onCollapse }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -86,7 +89,7 @@ export function ChatPanel({ onSend, messages, loading, connected, onClear }: Cha
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
       handleSend()
     }
@@ -96,11 +99,22 @@ export function ChatPanel({ onSend, messages, loading, connected, onClear }: Cha
     <div className="flex flex-col h-full border border-gray-700 rounded-md bg-[#0d1117]">
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
         <div className="flex items-center gap-2">
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="text-gray-400 hover:text-gray-200 p-0.5"
+              aria-label="Collapse chat panel"
+            >
+              <span className="inline-block rotate-90 text-xs">&#9654;</span>
+            </button>
+          )}
           <span className="text-sm font-semibold text-white">Claude</span>
           {connected !== undefined && (
             <span
               data-testid="connection-indicator"
-              className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}
+              className={`w-2 h-2 rounded-full ${!connected ? 'bg-red-400' : sessionId ? 'bg-green-400' : 'bg-yellow-400'}`}
+              title={!connected ? 'Disconnected' : sessionId ? 'Session active' : 'No active session'}
             />
           )}
         </div>
@@ -116,14 +130,22 @@ export function ChatPanel({ onSend, messages, loading, connected, onClear }: Cha
         )}
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg) => (
+        {error && (
+          <div role="alert" className="bg-red-900/30 border border-red-700 rounded-md px-3 py-2 text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+        {messages.map((msg) => {
+          const isStale = !!(sessionId && msg.sessionId && msg.sessionId !== sessionId)
+          return (
           <div
             key={msg.id}
+            data-testid={isStale ? 'stale-message' : undefined}
             className={`text-sm ${
               msg.role === 'user'
                 ? 'text-blue-300 text-right'
                 : 'text-gray-200'
-            }`}
+            }${isStale ? ' opacity-50' : ''}`}
           >
             <span className="text-xs text-gray-500 block mb-0.5">
               {msg.role === 'user' ? 'You' : 'Claude'}
@@ -132,9 +154,10 @@ export function ChatPanel({ onSend, messages, loading, connected, onClear }: Cha
               {msg.role === 'assistant' ? <SimpleMarkdown text={msg.content} /> : msg.content}
             </div>
           </div>
-        ))}
+          )
+        })}
         {loading && (
-          <div className="text-gray-400 text-sm animate-pulse">
+          <div className="text-gray-400 text-sm animate-pulse" aria-live="polite">
             Thinking...
           </div>
         )}
@@ -149,12 +172,12 @@ export function ChatPanel({ onSend, messages, loading, connected, onClear }: Cha
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={loading}
+          disabled={loading || connected === false}
         />
         <button
           type="button"
           onClick={handleSend}
-          disabled={loading}
+          disabled={loading || connected === false}
           className="px-4 py-2 text-sm bg-blue-700 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed self-end"
         >
           Send

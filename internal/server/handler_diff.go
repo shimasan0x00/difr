@@ -47,6 +47,18 @@ func (s *Server) handleGetDiffStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) handleGetDiffMeta(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.diffMeta)
+}
+
+func (s *Server) handleGetTrackedFiles(w http.ResponseWriter, r *http.Request) {
+	files := s.trackedFiles
+	if files == nil {
+		files = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string][]string{"files": files})
+}
+
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }

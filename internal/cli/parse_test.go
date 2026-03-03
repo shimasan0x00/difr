@@ -107,3 +107,66 @@ func TestParseDiffRequest_TooManyArgs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "too many arguments")
 }
+
+func TestBuildDiffMeta(t *testing.T) {
+	tests := []struct {
+		name     string
+		req      diff.DiffRequest
+		wantFrom string
+		wantTo   string
+		wantMode string
+	}{
+		{
+			name:     "latest commit",
+			req:      diff.DiffRequest{Mode: diff.DiffModeLatestCommit},
+			wantFrom: "HEAD~1",
+			wantTo:   "HEAD",
+			wantMode: "commit",
+		},
+		{
+			name:     "specific commit",
+			req:      diff.DiffRequest{Mode: diff.DiffModeCommit, From: "abc1234"},
+			wantFrom: "abc1234~1",
+			wantTo:   "abc1234",
+			wantMode: "commit",
+		},
+		{
+			name:     "range",
+			req:      diff.DiffRequest{Mode: diff.DiffModeRange, From: "main", To: "feature/xyz"},
+			wantFrom: "main",
+			wantTo:   "feature/xyz",
+			wantMode: "range",
+		},
+		{
+			name:     "staged",
+			req:      diff.DiffRequest{Mode: diff.DiffModeStaged},
+			wantFrom: "HEAD",
+			wantTo:   "Staged",
+			wantMode: "staged",
+		},
+		{
+			name:     "working",
+			req:      diff.DiffRequest{Mode: diff.DiffModeWorking},
+			wantFrom: "HEAD",
+			wantTo:   "Working tree",
+			wantMode: "working",
+		},
+		{
+			name:     "stdin",
+			req:      diff.DiffRequest{Mode: diff.DiffModeStdin},
+			wantFrom: "",
+			wantTo:   "",
+			wantMode: "stdin",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := BuildDiffMeta(tt.req)
+
+			assert.Equal(t, tt.wantFrom, meta.From)
+			assert.Equal(t, tt.wantTo, meta.To)
+			assert.Equal(t, tt.wantMode, meta.Mode)
+		})
+	}
+}

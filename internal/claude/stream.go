@@ -12,14 +12,27 @@ type ContentBlock struct {
 	Text string `json:"text,omitempty"`
 }
 
+// AssistantMessage represents the nested message in an assistant event.
+type AssistantMessage struct {
+	Content []ContentBlock `json:"content,omitempty"`
+}
+
 // StreamEvent represents a single event from Claude Code's stream-json output.
 type StreamEvent struct {
-	Type       string         `json:"type"`
-	SubType    string         `json:"subtype,omitempty"`
-	SessionID  string         `json:"session_id,omitempty"`
-	Content    []ContentBlock `json:"content,omitempty"`
-	Result     string         `json:"result,omitempty"`
-	StopReason string         `json:"stop_reason,omitempty"`
+	Type       string           `json:"type"`
+	SubType    string           `json:"subtype,omitempty"`
+	SessionID  string           `json:"session_id,omitempty"`
+	Message    *AssistantMessage `json:"message,omitempty"`
+	Result     string           `json:"result,omitempty"`
+	StopReason string           `json:"stop_reason,omitempty"`
+}
+
+// ContentBlocks returns the content blocks from an assistant event.
+func (e *StreamEvent) ContentBlocks() []ContentBlock {
+	if e.Message != nil {
+		return e.Message.Content
+	}
+	return nil
 }
 
 // ParseStreamEvents parses NDJSON stream-json output into StreamEvent slices.
@@ -28,7 +41,7 @@ func ParseStreamEvents(r io.Reader) ([]StreamEvent, error) {
 	const maxLineSize = 1024 * 1024 // 1MB per line to handle large Claude responses
 	var events []StreamEvent
 	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, maxLineSize), maxLineSize)
+	scanner.Buffer(make([]byte, 4096), maxLineSize)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {

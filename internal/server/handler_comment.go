@@ -63,8 +63,8 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "body is required")
 		return
 	}
-	if req.Line < 1 {
-		writeError(w, http.StatusBadRequest, "line must be a positive integer")
+	if req.Line < 0 {
+		writeError(w, http.StatusBadRequest, "line must be a non-negative integer")
 		return
 	}
 	if _, ok := s.fileIndex[req.FilePath]; !ok {
@@ -168,6 +168,15 @@ func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleDeleteAllComments(w http.ResponseWriter, r *http.Request) {
+	if err := s.commentStore.DeleteAll(); err != nil {
+		slog.Error("delete all comments error", "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to delete all comments")
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

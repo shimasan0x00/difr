@@ -53,6 +53,12 @@ function mockFetchByUrl(diffResult: DiffResult | null, diffStatus = 200) {
         json: async () => [],
       } as Response)
     }
+    if (urlStr === '/api/diff/tracked-files') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ files: [] }),
+      } as Response)
+    }
     return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
   }
 }
@@ -68,6 +74,10 @@ beforeEach(() => {
     viewMode: 'split',
     loading: true,
     error: null,
+    sidebarTab: 'changed',
+    fileContentCache: new Map(),
+    fileContentLoading: false,
+    fileContentError: null,
   })
 })
 
@@ -186,6 +196,29 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(useDiffStore.getState().viewMode).toBe('unified')
+    })
+  })
+
+  it('shows FileViewer when viewing a non-changed file', async () => {
+    fetchSpy.mockImplementation(mockFetchByUrl(mockDiffResult) as typeof fetch)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('file.go').length).toBeGreaterThanOrEqual(1)
+    })
+
+    // Simulate selecting a non-changed file with cached content
+    useDiffStore.setState({
+      selectedFile: 'readme.md',
+      sidebarTab: 'all',
+      fileContentCache: new Map([
+        ['readme.md', { path: 'readme.md', content: '# Hello\n', size: 8 }],
+      ]),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('# Hello')).toBeInTheDocument()
     })
   })
 })
