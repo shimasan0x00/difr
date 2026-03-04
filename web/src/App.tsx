@@ -11,7 +11,7 @@ import { CopyAllButton } from './components/comment/CopyAllButton'
 import { ClearButton } from './components/comment/ClearButton'
 import { ChatPanel } from './components/claude/ChatPanel'
 import { ReviewButton } from './components/claude/ReviewButton'
-import { useResizable } from './hooks/useResizable'
+import { useResizable } from './hooks/useResizable/SAMPLE'
 import type { DiffFile } from './api/types'
 
 export function buildReviewContent(files: DiffFile[]): string {

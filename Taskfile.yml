@@ -7,7 +7,7 @@ vars:
 tasks:
   # === Development ===
   dev:
-    desc: "Start development servers (Go + Vite)"
+    desc: "Start development servers (Go + Vite)     TEST"
     deps: [dev:backend, dev:frontend]
 
   dev:backend:
