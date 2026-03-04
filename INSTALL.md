@@ -12,7 +12,17 @@
 
 ## インストール方法
 
-### 方法 1: ソースからビルド（推奨）
+### 方法 1: `go install`（推奨）
+
+Go がインストール済みなら、1コマンドでインストールできます:
+
+```bash
+go install github.com/shimasan0x00/difr/cmd/difr@latest
+```
+
+`$GOPATH/bin/difr` にバイナリがインストールされます。
+
+### 方法 2: ソースからビルド
 
 ```bash
 git clone https://github.com/shimasan0x00/difr.git
@@ -36,7 +46,7 @@ sudo cp difr /usr/local/bin/
 cp difr ~/go/bin/
 ```
 
-### 方法 2: 手動ビルド（Task なし）
+### 方法 3: 手動ビルド（Task なし）
 
 Task をインストールしたくない場合は手動で実行できます:
 
@@ -47,20 +57,16 @@ cd difr
 # Go 依存関係
 go mod tidy
 
-# フロントエンドビルド
+# フロントエンドビルド（dist を更新したい場合のみ）
 cd web
 npm ci
 npm run build
 cd ..
-
-# フロントエンドを embed 用ディレクトリにコピー
+rm -rf internal/embed/dist
 cp -r web/dist internal/embed/dist
 
 # 本番バイナリビルド
-go build -tags production -ldflags "-s -w" -o difr ./cmd/difr
-
-# embed 用コピーをクリーンアップ
-rm -rf internal/embed/dist
+go build -ldflags "-s -w" -o difr ./cmd/difr
 ```
 
 ## 動作確認

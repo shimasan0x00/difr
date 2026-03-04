@@ -24,11 +24,16 @@ tasks:
   # === Build ===
   build:
     desc: "Build production binary"
+    deps: [build:dist]
+    cmds:
+      - go build -ldflags "-s -w" -o {{.BINARY_NAME}} ./cmd/difr
+
+  build:dist:
+    desc: "Rebuild frontend and update committed dist"
     deps: [build:frontend]
     cmds:
-      - cp -r {{.WEB_DIR}}/dist internal/embed/dist
-      - go build -tags production -ldflags "-s -w" -o {{.BINARY_NAME}} ./cmd/difr
       - rm -rf internal/embed/dist
+      - cp -r {{.WEB_DIR}}/dist internal/embed/dist
 
   build:frontend:
     desc: "Build frontend assets"
@@ -57,11 +62,9 @@ tasks:
 
   test:e2e:server:
     desc: "Start E2E test server (production build)"
-    deps: [build:frontend]
+    deps: [build:dist]
     cmds:
-      - cp -r {{.WEB_DIR}}/dist internal/embed/dist
-      - defer: rm -rf internal/embed/dist
-      - go run -tags production ./cmd/e2e-server --port {{.CLI_ARGS | default "4444"}}
+      - go run ./cmd/e2e-server --port {{.CLI_ARGS | default "4444"}}
 
   test:e2e:
     desc: "Run Playwright E2E tests"
@@ -99,7 +102,6 @@ tasks:
     cmds:
       - rm -f {{.BINARY_NAME}}
       - rm -rf {{.WEB_DIR}}/dist
-      - rm -rf internal/embed/dist
 
   lint:
     desc: "Run all linters"

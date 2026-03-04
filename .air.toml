@@ -1,8 +1,8 @@
 [build]
-  cmd = "go build -o ./tmp/difr ./cmd/difr"
+  cmd = "go build -tags dev -o ./tmp/difr ./cmd/difr"
   bin = "./tmp/difr"
   delay = 1000
-  exclude_dir = ["web", "tmp", "node_modules", ".git", "plan"]
+  exclude_dir = ["web", "tmp", "node_modules", ".git", "plan", "internal/embed/dist"]
   exclude_regex = ["_test\\.go$"]
   include_ext = ["go"]
   kill_delay = "0s"

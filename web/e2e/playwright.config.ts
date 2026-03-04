@@ -20,7 +20,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      "cd ../.. && npm run --prefix web build && cp -r web/dist internal/embed/dist && go run -tags production ./cmd/e2e-server --port 4444; rm -rf internal/embed/dist",
+      "cd ../.. && npm run --prefix web build && rm -rf internal/embed/dist && cp -r web/dist internal/embed/dist && go run ./cmd/e2e-server --port 4444",
     port: 4444,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
