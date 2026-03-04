@@ -1,15 +1,24 @@
 # difr
 
-プラットフォームに依存しない、ローカルで動作するコードレビュー支援ツール。
-Git の差分をブラウザ上で GitHub 風に可視化し、コメント機能と Claude Code 連携（Chat + 自動レビュー）を提供します。
+- プラットフォームに依存しない、ローカルで動作するコードレビュー支援ツール
+- Git の差分をブラウザ上で GitHub 風に可視化
+- コメント機能と Claude Code 連携（Chat + 自動レビュー）を提供
+
+![Overview](.readme/difr_overview.jpg)
 
 ## 特徴
 
-- **GitHub 風 Diff ビューア** — Split / Unified 表示切替、Shiki による構文ハイライト
-- **インラインコメント** — 行単位でコメントを追加・編集・削除、Markdown / JSON エクスポート
-- **Claude Code 連携** — WebSocket 経由のリアルタイムチャット＆自動コードレビュー
-- **単一バイナリ配布** — Go embed でフロントエンドを内蔵、インストール不要
-- **パイプ入力対応** — `git diff | difr` で任意の diff を表示可能
+- GitHub 風 Diff Viewer
+  - Split / Unified 表示切替
+  - 構文ハイライト
+- コメント
+  - ファイル単位・行単位でコメントを追加・編集・削除
+  - Markdown / JSON エクスポート
+- Claude Code 連携
+  - WebSocket 経由のリアルタイムチャット
+  - 自動コードレビュー
+- 単一バイナリ配布
+  - Go embed でフロントエンドを内蔵、インストール不要
 
 ## インストール
 
@@ -31,10 +40,18 @@ task build
 
 ## 使い方
 
+- とりあえず動かしてみる
+
+```bash
+difr main feature/xxx
+```
+
+- 詳細
+
 ```bash
 difr                        # 最新コミットの diff (HEAD~1..HEAD)
 difr <commit>               # 特定コミットの diff
-difr <base> <compare>            # 2コミット間の diff
+difr <base> <compare>       # 2コミット間の diff
 difr staged                 # ステージング済み変更
 difr working                # 未ステージング変更
 git diff | difr             # stdin パイプ入力
