@@ -59,9 +59,9 @@ React App → Zustand stores
 
 ## ビルド構成
 
-- **開発:** `embed_dev.go` (`!production` tag) → Vite dev server へリバースプロキシ
-- **本番:** `embed_prod.go` (`production` tag) → `//go:embed all:dist` で配信
-- **フロー:** `npm run build` → `web/dist/` → `internal/embed/dist/` にコピー → `go build -tags production` → コピー削除
+- **開発:** `embed_dev.go` (`dev` tag) → Vite dev server へリバースプロキシ
+- **本番:** `embed_prod.go` (`!dev` tag, デフォルト) → `//go:embed all:dist` で配信
+- **フロー:** `npm run build` → `web/dist/` → `internal/embed/dist/` にコピー・コミット → `go build` (タグ不要)
 
 ## 主要な設計判断
 

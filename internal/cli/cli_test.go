@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,6 +45,14 @@ func TestNewRootCmd_DefaultFlags(t *testing.T) {
 }
 
 func TestNewRootCmd_PortBoundaryValidation(t *testing.T) {
+	// Run in a temp dir that is NOT a git repo so valid-port cases
+	// fail at git operations instead of starting a real server.
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { os.Chdir(origDir) })
+
 	tests := []struct {
 		name    string
 		port    string
@@ -58,7 +67,6 @@ func TestNewRootCmd_PortBoundaryValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewRootCmd()
-			// Prevent actual server start: just validate flags
 			cmd.SetArgs([]string{"--port", tt.port, "--no-open", "staged"})
 			err := cmd.Execute()
 
@@ -66,8 +74,8 @@ func TestNewRootCmd_PortBoundaryValidation(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "port")
 			} else {
-				// Valid port will fail because we don't have a git repo, which is expected
-				// The important thing is it's NOT a port validation error
+				// Valid port will fail because we're not in a git repo.
+				// The important thing is it's NOT a port validation error.
 				if err != nil {
 					assert.NotContains(t, err.Error(), "invalid port")
 				}

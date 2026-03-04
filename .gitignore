@@ -8,9 +8,6 @@ coverage.html
 node_modules/
 web/dist/
 
-# Embed (copied at build time)
-internal/embed/dist/
-
 # IDE
 .idea/
 .vscode/
