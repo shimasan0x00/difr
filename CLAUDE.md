@@ -63,6 +63,19 @@ React App → Zustand stores
 - **本番:** `embed_prod.go` (`!dev` tag, デフォルト) → `//go:embed all:dist` で配信
 - **フロー:** `npm run build` → `web/dist/` → `internal/embed/dist/` にコピー・コミット → `go build` (タグ不要)
 
+## CI/CD
+
+- **CI (`ci.yml`):** PR / main push で実行。Lint → Test Backend → Test Frontend → E2E (PR時のみ)
+- **Release (`release.yml`):** `v*` タグ push で実行。test → build-frontend → build (5プラットフォーム) → publish
+
+### E2E テスト作成時の注意点
+
+- **ロケーター:** `getByText()` はサイドバーと本体で重複マッチしやすい。ファイル名には `locator('[id="diff-file-xxx"]')` を使う
+- **CSS hover 依存の UI:** `group-hover` で表示されるボタンは headless Chrome では hover なしだとクリックできない。必ず `element.hover()` してから操作する
+- **コンポーネントの確認 UI:** `InlineComment` の削除は `confirm()` ダイアログではなくインライン確認ボタン（"Confirm delete"）。テストではコンポーネントの実装を確認してから操作手順を書く
+- **モック NDJSON フォーマット:** `StreamEvent.ContentBlocks()` は `message.content` を参照する。モックの JSON は `{"type":"assistant","message":{"content":[...]}}` の形式にする（`"content"` を直接トップレベルに置かない）
+- **CI 環境のタイミング:** WebSocket 接続確立を待つ（`connection-indicator`）。レスポンス待ちは余裕を持ったタイムアウト (20s) を設定する
+
 ## 主要な設計判断
 
 - 型定義は `internal/diff/types.go` に集約（循環 import 回避）
