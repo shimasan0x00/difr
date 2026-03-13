@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: "Version tag to release (e.g., v0.1.0)"
+        required: true
+        type: string
 
 permissions: {}
 
@@ -147,5 +153,5 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: gh release create "$TAG" artifacts/* --generate-notes
