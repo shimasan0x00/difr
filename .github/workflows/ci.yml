@@ -3,8 +3,26 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "LICENSE"
+      - ".claude/**"
+      - "plan/**"
+      - "review-docs/**"
+      - ".readme/**"
+      - ".gitignore"
+      - ".gitattributes"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "LICENSE"
+      - ".claude/**"
+      - "plan/**"
+      - "review-docs/**"
+      - ".readme/**"
+      - ".gitignore"
+      - ".gitattributes"
 
 concurrency:
   group: ci-${{ github.ref }}
