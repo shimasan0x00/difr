@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useClaudeStore, _resetModuleState } from './claudeStore'
 
 // --- WebSocket mock ---
-type WSEventHandler = ((event: { data: string }) => void) | (() => void) | null
-
 class MockWebSocket {
   static CONNECTING = 0
   static OPEN = 1
@@ -17,7 +15,8 @@ class MockWebSocket {
   onerror: (() => void) | null = null
   sentMessages: string[] = []
 
-  constructor(_url: string) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(url: string) {
     // Schedule async open to mimic real WebSocket
     setTimeout(() => {
       this.readyState = MockWebSocket.OPEN
@@ -72,7 +71,7 @@ describe('claudeStore', () => {
     vi.stubGlobal('WebSocket', class extends MockWebSocket {
       constructor(url: string) {
         super(url)
-        mockWsInstance = this
+        mockWsInstance = this // eslint-disable-line @typescript-eslint/no-this-alias
       }
     })
     // Needed for static properties
@@ -275,7 +274,8 @@ describe('claudeStore', () => {
         onclose: (() => void) | null = null
         onmessage: ((event: { data: string }) => void) | null = null
         onerror: (() => void) | null = null
-        constructor(_url: string) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        constructor(url: string) {
           mockWsInstance = this as unknown as MockWebSocket
           wsCreationCount++
         }

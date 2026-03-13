@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import App, { buildReviewContent } from './App'
+import App from './App'
+import { buildReviewContent } from './utils/buildReviewContent'
 import { useDiffStore } from './stores/diffStore'
 import type { DiffFile, DiffResult } from './api/types'
 
