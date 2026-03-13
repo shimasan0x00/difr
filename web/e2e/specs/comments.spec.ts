@@ -54,12 +54,10 @@ test.describe("Comments", () => {
     await page.getByRole("button", { name: "Add Comment", exact: true }).click();
     await expect(page.getByText("Comment to delete")).toBeVisible();
 
-    // Auto-accept the confirm dialog when it appears
-    page.on("dialog", (d) => d.accept());
-
-    // Delete the comment (use locator scoped to the diff file to avoid split-view duplicates)
+    // Click Delete to show inline confirmation, then click Confirm
     const diffFile = page.locator('[id="diff-file-main.go"]');
     await diffFile.getByRole("button", { name: "Delete" }).first().click();
+    await diffFile.getByRole("button", { name: "Confirm delete" }).first().click();
 
     // Verify deletion via API (authoritative check, avoids split-view dual rendering)
     await expect(async () => {
