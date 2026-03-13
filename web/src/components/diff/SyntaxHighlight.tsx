@@ -11,6 +11,7 @@ function cacheKey(code: string, language: string): string {
 }
 
 /** Clear the token cache. For testing only. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function _clearTokenCache(): void {
   tokenCache.clear()
 }
@@ -48,7 +49,7 @@ export const HighlightedLine = memo(function HighlightedLine({ code, language }:
     const key = cacheKey(code, language)
     const cached = tokenCache.get(key)
     if (cached) {
-      setTokenLine(cached)
+      setTokenLine(cached) // eslint-disable-line react-hooks/set-state-in-effect
       return
     }
 

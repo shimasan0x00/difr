@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildFileTree, type TreeNode } from './FileTree'
+import { buildFileTree } from './FileTree'
 import type { FileStatus } from '../../api/types'
 
 describe('buildFileTree', () => {

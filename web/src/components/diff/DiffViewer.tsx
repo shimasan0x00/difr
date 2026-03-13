@@ -25,7 +25,7 @@ export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDele
   const prevReviewed = useRef(isReviewed)
   useEffect(() => {
     if (isReviewed && !prevReviewed.current) {
-      setExpanded(false)
+      setExpanded(false) // eslint-disable-line react-hooks/set-state-in-effect
     }
     prevReviewed.current = isReviewed
   }, [isReviewed])

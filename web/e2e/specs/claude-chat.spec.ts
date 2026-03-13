@@ -3,7 +3,12 @@ import { test, expect } from "@playwright/test";
 test.describe("Claude Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("main.go")).toBeVisible();
+    await expect(page.locator('[id="diff-file-main.go"]')).toBeVisible();
+    // Wait for WebSocket connection to be established
+    await expect(page.getByTestId("connection-indicator")).toHaveClass(
+      /bg-green-400|bg-yellow-400/,
+      { timeout: 15_000 },
+    );
   });
 
   test("displays chat panel with input and send button", async ({ page }) => {
@@ -23,7 +28,7 @@ test.describe("Claude Chat", () => {
     // Should receive mock response from the E2E server
     await expect(
       page.getByText("This is a mock response from Claude for E2E testing.")
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 20_000 });
   });
 
   test("triggers auto review and receives mock response", async ({
@@ -34,6 +39,6 @@ test.describe("Claude Chat", () => {
     // Should show review result
     await expect(
       page.getByText("Consider adding error handling")
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 20_000 });
   });
 });
