@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Claude Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("main.go")).toBeVisible();
+    await expect(page.locator('[id="diff-file-main.go"]')).toBeVisible();
   });
 
   test("displays chat panel with input and send button", async ({ page }) => {

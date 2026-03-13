@@ -4,13 +4,13 @@ test.describe("DiffViewer", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     // Wait for diff to load
-    await expect(page.getByText("main.go")).toBeVisible();
+    await expect(page.locator('[id="diff-file-main.go"]')).toBeVisible();
   });
 
   test("displays file headers with paths", async ({ page }) => {
-    await expect(page.getByText("main.go")).toBeVisible();
-    await expect(page.getByText("utils.go")).toBeVisible();
-    await expect(page.getByText("old.go")).toBeVisible();
+    await expect(page.locator('[id="diff-file-main.go"]')).toBeVisible();
+    await expect(page.locator('[id="diff-file-utils.go"]')).toBeVisible();
+    await expect(page.locator('[id="diff-file-old.go"]')).toBeVisible();
   });
 
   test("displays correct status badges", async ({ page }) => {

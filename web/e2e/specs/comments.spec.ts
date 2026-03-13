@@ -5,7 +5,7 @@ test.describe.configure({ mode: "serial" });
 test.describe("Comments", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("main.go")).toBeVisible();
+    await expect(page.locator('[id="diff-file-main.go"]')).toBeVisible();
     await deleteAllComments(page);
   });
 
