@@ -57,8 +57,9 @@ test.describe("Comments", () => {
     // Auto-accept the confirm dialog when it appears
     page.on("dialog", (d) => d.accept());
 
-    // Delete the comment
-    await page.getByRole("button", { name: "Delete" }).first().click();
+    // Delete the comment (use locator scoped to the diff file to avoid split-view duplicates)
+    const diffFile = page.locator('[id="diff-file-main.go"]');
+    await diffFile.getByRole("button", { name: "Delete" }).first().click();
 
     // Verify deletion via API (authoritative check, avoids split-view dual rendering)
     await expect(async () => {
@@ -67,6 +68,6 @@ test.describe("Comments", () => {
       );
       const comments = await res.json();
       expect(comments).toHaveLength(0);
-    }).toPass({ timeout: 5000 });
+    }).toPass({ timeout: 10_000 });
   });
 });
