@@ -38,13 +38,14 @@ index 1234567..0000000
 `
 
 // mockChatResponse is a NDJSON Claude stream for chat messages.
+// assistant event must use "message":{"content":[...]} to match StreamEvent struct.
 const mockChatResponse = `{"type":"system","subtype":"init","session_id":"e2e-mock-session"}
-{"type":"assistant","content":[{"type":"text","text":"This is a mock response from Claude for E2E testing."}]}
+{"type":"assistant","message":{"content":[{"type":"text","text":"This is a mock response from Claude for E2E testing."}]}}
 {"type":"result","subtype":"success","result":"This is a mock response from Claude for E2E testing.","session_id":"e2e-mock-session","stop_reason":"end_turn"}
 `
 
 // mockReviewResponse is a NDJSON Claude stream for review requests.
 const mockReviewResponse = `{"type":"system","subtype":"init","session_id":"e2e-review-session"}
-{"type":"assistant","content":[{"type":"text","text":"Code review: The changes look good overall. Consider adding error handling in main()."}]}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Code review: The changes look good overall. Consider adding error handling in main()."}]}}
 {"type":"result","subtype":"success","result":"Code review: The changes look good overall. Consider adding error handling in main().","session_id":"e2e-review-session","stop_reason":"end_turn"}
 `
