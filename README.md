@@ -1,103 +1,135 @@
 # difr
 
-- プラットフォームに依存しない、ローカルで動作するコードレビュー支援ツール
-- Git の差分をブラウザ上で GitHub 風に可視化
-- コメント機能と Claude Code 連携（Chat + 自動レビュー）を提供
+A platform-independent, local code review tool that visualizes Git diffs in a GitHub-style UI with commenting and Claude Code integration.
 
 ![Overview](.readme/difr_overview.jpg)
 
-## 特徴
+## Features
 
-- GitHub 風 Diff Viewer
-  - Split / Unified 表示切替
-  - 構文ハイライト
-- コメント
-  - ファイル単位・行単位でコメントを追加・編集・削除
-  - Markdown / JSON エクスポート
-- Claude Code 連携
-  - WebSocket 経由のリアルタイムチャット
-  - 自動コードレビュー
-- 単一バイナリ配布
-  - Go embed でフロントエンドを内蔵、インストール不要
+- **GitHub-style Diff Viewer** — Split / Unified view with syntax highlighting
+- **Comments** — File-level and line-level comments with Markdown / JSON export
+- **Claude Code Integration** — Real-time WebSocket chat and automated code review
+- **File Browser** — Browse all tracked files with syntax highlighting
+- **Single Binary** — Frontend embedded via Go embed, no separate install required
 
-## インストール
+## Installation
+
+### GitHub Releases
+
+Download the latest binary for your platform from [GitHub Releases](https://github.com/shimasan0x00/difr/releases):
+
+| Platform | File |
+|----------|------|
+| Linux (x64) | `difr-linux-amd64` |
+| Linux (ARM64) | `difr-linux-arm64` |
+| macOS (Intel) | `difr-darwin-amd64` |
+| macOS (Apple Silicon) | `difr-darwin-arm64` |
+| Windows (x64) | `difr-windows-amd64.exe` |
+
+On Linux / macOS, make the binary executable after downloading:
+
+```bash
+chmod +x difr-*
+```
+
+### go install
 
 ```bash
 go install github.com/shimasan0x00/difr/cmd/difr@latest
 ```
 
-### ソースからビルド
+### Build from Source
 
-前提: Go 1.25+, Node.js 20+, [Task](https://taskfile.dev/)
+Prerequisites: Go 1.25+, Node.js 22+, [Task](https://taskfile.dev/)
 
 ```bash
 git clone https://github.com/shimasan0x00/difr.git
 cd difr
 task install
 task build
-# ./difr が生成されます
+# ./difr binary is generated
 ```
 
-## 使い方
+## Usage
 
-- とりあえず動かしてみる
+```
+difr [flags] [commit | from to | staged | working]
+```
+
+| Command | Description |
+|---------|-------------|
+| `difr` | Latest commit diff (`HEAD~1..HEAD`) |
+| `difr <commit>` | Diff of a specific commit (`<commit>~1..<commit>`) |
+| `difr <base> <compare>` | Diff between two refs (branches, tags, or commits) |
+| `difr staged` | Staged changes (`git diff --cached`) |
+| `difr working` | Unstaged working tree changes |
+| `git diff \| difr` | Read diff from stdin pipe |
+
+### Examples
 
 ```bash
-difr main feature/xxx
+# Compare two branches
+difr main feature/new-api
+
+# Review staged changes before committing
+difr staged
+
+# View a specific commit
+difr abc1234
+
+# Pipe from git diff with custom options
+git diff --ignore-all-space main | difr
 ```
 
-- 詳細
+## Options
 
-```bash
-difr                        # 最新コミットの diff (HEAD~1..HEAD)
-difr <commit>               # 特定コミットの diff
-difr <base> <compare>       # 2コミット間の diff
-difr staged                 # ステージング済み変更
-difr working                # 未ステージング変更
-git diff | difr             # stdin パイプ入力
-```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port, -p` | `3333` | Server port |
+| `--host` | `127.0.0.1` | Bind address |
+| `--mode, -m` | `split` | Display mode (`split` / `unified`) |
+| `--no-open` | `false` | Don't open browser automatically |
+| `--no-claude` | `false` | Disable Claude Code integration |
+| `--watch, -w` | `false` | Watch for file changes (experimental) |
+| `--claude-timeout` | `5m` | Timeout for Claude CLI operations (e.g. `10m`, `300s`) |
 
-### オプション
+## Tech Stack
 
-| フラグ | デフォルト | 説明 |
-|--------|-----------|------|
-| `--port, -p` | `3333` | サーバーポート |
-| `--host` | `127.0.0.1` | バインドアドレス |
-| `--mode, -m` | `split` | 表示モード (`split` / `unified`) |
-| `--no-open` | `false` | ブラウザ自動起動を抑制 |
-| `--no-claude` | `false` | Claude Code 連携を無効化 |
-| `--watch, -w` | `false` | ファイル変更監視 (experimental) |
-
-## 技術スタック
-
-| 領域 | 技術 |
-|------|------|
-| バックエンド | Go 1.25 / Chi v5 / cobra |
-| フロントエンド | React 19 / TypeScript 5.9 / Vite 7 |
-| スタイリング | Tailwind CSS v4 |
-| 状態管理 | Zustand v5 |
-| 構文ハイライト | Shiki (github-dark テーマ) |
+| Area | Technology |
+|------|------------|
+| Backend | Go 1.25 / Chi v5 / cobra |
+| Frontend | React 19 / TypeScript 5.9 / Vite 7 |
+| Styling | Tailwind CSS v4 |
+| State Management | Zustand v5 |
+| Syntax Highlighting | Shiki (github-dark theme) |
 | WebSocket | coder/websocket |
-| テスト | testify / Vitest / React Testing Library |
+| Testing | testify / Vitest / React Testing Library / Playwright |
 
-## 開発
+## Development
+
+Prerequisites: Go 1.25+, Node.js 22+, [Task](https://taskfile.dev/)
 
 ```bash
-# 開発サーバー起動 (Go :3333 + Vite :5173)
-task dev
+task install           # Install dependencies (go mod tidy + npm install)
 
-# テスト
-task test              # 全テスト (Go + Frontend)
-task test:backend      # Go テストのみ (-race 有効)
-task test:frontend     # Vitest のみ
+# Development
+task dev               # Start Go (:3333) + Vite (:5173) dev servers
 
-# リント
-task lint
+# Testing
+task test              # All tests (Go + Frontend)
+task test:backend      # Go tests only (-race enabled)
+task test:frontend     # Vitest only
+task test:e2e          # Playwright E2E tests
+task test:coverage     # Tests with coverage report
 
-# ビルド成果物削除
-task clean
+# Quality
+task lint              # Run all linters (go vet + eslint)
+
+# Build
+task build             # Production binary (single binary with embedded frontend)
+task clean             # Clean build artifacts
 ```
 
-## ライセンス
+## License
 
 [MIT](LICENSE)

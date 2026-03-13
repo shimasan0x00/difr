@@ -34,20 +34,34 @@ task test:backend     # Go テストのみ (-race 有効)
 task test:frontend    # Vitest のみ
 task build            # 本番バイナリ (単一バイナリ)
 task clean            # ビルド成果物削除
+task install          # 依存関係インストール (go mod tidy + npm install)
+task lint             # 全リンター (go vet + npm lint)
+task test:e2e         # Playwright E2E テスト
+task test:e2e:headed  # E2E テスト (ブラウザ表示)
+task test:e2e:ui      # Playwright UI モード
+task test:coverage    # カバレッジレポート付きテスト
 ```
 
 ## アーキテクチャ
 
 ```
 CLI (cobra) → git diff → HTTPサーバー (Chi)
-  ├── /api/diff          DiffResult JSON
-  ├── /api/diff/files    ファイル一覧 / 個別取得
-  ├── /api/diff/stats    統計情報
-  ├── /api/files/*       ファイルコンテンツ配信 (tracked のみ)
-  ├── /api/comments      コメント CRUD + エクスポート
-  ├── /api/claude/status Claude CLI 可用性
-  ├── /ws/claude         Chat + 自動レビュー (WebSocket)
-  └── /*                 フロントエンド (dev: proxy, prod: embed)
+  ├── /api/health              ヘルスチェック
+  ├── /api/diff                DiffResult JSON
+  ├── /api/diff/files          ファイル一覧
+  ├── /api/diff/files/*        個別ファイル取得
+  ├── /api/diff/stats          統計情報
+  ├── /api/diff/meta           比較メタデータ (from/to/mode)
+  ├── /api/diff/tracked-files  Git 管理下ファイル一覧
+  ├── /api/diff/mode           表示モード (read-only)
+  ├── /api/comments            コメント CRUD (POST/GET/DELETE)
+  ├── /api/comments/{id}       個別コメント (PUT/DELETE)
+  ├── /api/comments/export     エクスポート (Markdown/JSON)
+  ├── /api/reviewed-files      レビュー済みファイル (GET/POST/DELETE)
+  ├── /api/files/*             ファイルコンテンツ配信 (tracked のみ)
+  ├── /api/claude/status       Claude CLI 可用性
+  ├── /ws/claude               Chat + 自動レビュー (WebSocket)
+  └── /*                       フロントエンド (dev: proxy, prod: embed)
 
 React App → Zustand stores
   ├── DiffViewer (Split/Unified + Shiki) + CommentForm
@@ -67,6 +81,7 @@ React App → Zustand stores
 
 - **CI (`ci.yml`):** PR / main push で実行。Lint → Test Backend → Test Frontend → E2E (PR時のみ)
 - **Release (`release.yml`):** `v*` タグ push で実行。test → build-frontend → build (5プラットフォーム) → publish
+- **Auto Release (`auto-release.yml`):** main push (コード変更のみ) → 次パッチバージョンタグ自動作成 → release.yml トリガー
 
 ### E2E テスト作成時の注意点
 
@@ -81,8 +96,10 @@ React App → Zustand stores
 - 型定義は `internal/diff/types.go` に集約（循環 import 回避）
 - コメント Store: `sync.RWMutex` 並行安全、CUD で自動永続化 + ロールバック
 - WebSocket Claude: NDJSON 行単位リアルタイムストリーミング、指数バックオフ再接続（最大5回）
-- HTTP タイムアウト: Read 30s / Write 60s / Idle 120s
-- Claude タイムアウト: `WithClaudeTimeout()` でカスタマイズ可（デフォルト5分）
+- HTTP タイムアウト: Read 30s / Write 0 (WebSocket 長期接続のため無制限。リクエスト単位はハンドラレベルで制御) / Idle 120s
+- Claude タイムアウト: `--claude-timeout` フラグ (duration: 10m, 300s 等)、デフォルト5分
+- レビュー済みファイル Store: `sync.RWMutex` 並行安全、トグル方式 (Add/Remove)、`.difr/reviewed-files.json` に永続化
+- Content-Type 検証: POST/PUT で `application/json` 必須 (415 UnsupportedMediaType)
 - `log/slog` 構造化ログ統一
 - ファイルブラウザ: `trackedIndex` (git 管理下ファイルのホワイトリスト) + `filepath.IsLocal()` + symlink 解決でセキュリティ確保。5MB 上限、バイナリ判定 (null バイト + UTF-8 検証)
 - サイドバー: Changed / All Files タブ切り替え。All Files は `buildFileTree()` でフラットパスからツリー構造を構築、`DirectoryTree` で再帰表示
