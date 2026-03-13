@@ -1,5 +1,13 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { deleteAllComments } from "../helpers/test-utils";
+
+/** Hover a diff line and click the "Add comment" button to open the form. */
+async function openCommentForm(page: Page) {
+  const line = page.locator("[data-line-type]").first();
+  await line.hover();
+  await page.getByLabel("Add comment").first().click({ force: true });
+  await expect(page.getByLabel("Comment body")).toBeVisible();
+}
 
 test.describe.configure({ mode: "serial" });
 test.describe("Comments", () => {
@@ -12,19 +20,11 @@ test.describe("Comments", () => {
   test("shows comment button on line hover and opens form", async ({
     page,
   }) => {
-    // Hover a diff line to reveal the "+" button, then click it
-    const line = page.locator('[data-line-type]').first();
-    await line.hover();
-    const addButton = page.getByLabel("Add comment").first();
-    await addButton.click({ force: true });
-
-    // CommentForm should appear
-    await expect(page.getByLabel("Comment body")).toBeVisible();
+    await openCommentForm(page);
   });
 
   test("creates a comment via form", async ({ page }) => {
-    const addButton = page.getByLabel("Add comment").first();
-    await addButton.click({ force: true });
+    await openCommentForm(page);
 
     await page.getByLabel("Comment body").fill("Test comment from Playwright");
     await page.getByRole("button", { name: "Add Comment", exact: true }).click();
@@ -36,8 +36,7 @@ test.describe("Comments", () => {
   });
 
   test("cancels comment form without creating", async ({ page }) => {
-    const addButton = page.getByLabel("Add comment").first();
-    await addButton.click({ force: true });
+    await openCommentForm(page);
 
     await page.getByLabel("Comment body").fill("Should not be saved");
     await page.getByRole("button", { name: "Cancel" }).click();
@@ -50,8 +49,7 @@ test.describe("Comments", () => {
 
   test("deletes a comment", async ({ page }) => {
     // First create a comment
-    const addButton = page.getByLabel("Add comment").first();
-    await addButton.click({ force: true });
+    await openCommentForm(page);
     await page.getByLabel("Comment body").fill("Comment to delete");
     await page.getByRole("button", { name: "Add Comment", exact: true }).click();
     await expect(page.getByText("Comment to delete")).toBeVisible();
