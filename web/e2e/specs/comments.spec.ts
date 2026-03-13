@@ -12,7 +12,9 @@ test.describe("Comments", () => {
   test("shows comment button on line hover and opens form", async ({
     page,
   }) => {
-    // Hover a line to reveal the "+" button
+    // Hover a diff line to reveal the "+" button, then click it
+    const line = page.locator('[data-line-type]').first();
+    await line.hover();
     const addButton = page.getByLabel("Add comment").first();
     await addButton.click({ force: true });
 
