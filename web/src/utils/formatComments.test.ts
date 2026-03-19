@@ -61,7 +61,7 @@ describe('formatFileComments', () => {
       makeComment({ filePath: 'main.go', line: 10, body: 'Fix this', reviewCategory: 'MUST', severity: 'Critical' }),
     ]
     expect(formatFileComments('main.go', comments)).toBe(
-      '## main.go\n\n- **Line 10**: [MUST/Critical] Fix this\n',
+      '## main.go\n\n- **Line 10**: [MUST/Critical]\nFix this\n',
     )
   })
 
@@ -70,7 +70,7 @@ describe('formatFileComments', () => {
       makeComment({ filePath: 'main.go', line: 10, body: 'Consider', reviewCategory: 'IMO' }),
     ]
     expect(formatFileComments('main.go', comments)).toBe(
-      '## main.go\n\n- **Line 10**: [IMO] Consider\n',
+      '## main.go\n\n- **Line 10**: [IMO]\nConsider\n',
     )
   })
 })

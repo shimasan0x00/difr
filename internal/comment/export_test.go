@@ -101,10 +101,10 @@ func TestExportMarkdown_WithCategoryAndSeverityPrefix(t *testing.T) {
 
 	md := ExportMarkdown(comments)
 
-	assert.Contains(t, md, "- **Line 10**: [MUST/Critical] Fix this")
-	assert.Contains(t, md, "- **Line 20**: [IMO] Consider this")
+	assert.Contains(t, md, "- **Line 10**: [MUST/Critical]\nFix this")
+	assert.Contains(t, md, "- **Line 20**: [IMO]\nConsider this")
 	assert.Contains(t, md, "- **Line 30**: No prefix")
-	assert.Contains(t, md, "- **File**: [FYI/Low] File comment")
+	assert.Contains(t, md, "- **File**: [FYI/Low]\nFile comment")
 }
 
 func TestExportCSV_BasicOutput(t *testing.T) {
@@ -129,7 +129,9 @@ func TestExportCSV_EscapesSpecialCharacters(t *testing.T) {
 	csvStr := ExportCSV(comments)
 
 	assert.Contains(t, csvStr, `"Has ""quotes"" and, commas"`)
-	assert.Contains(t, csvStr, "\"Has\nnewlines\"")
+	// Newlines in body are escaped to literal \n
+	assert.Contains(t, csvStr, `Has\nnewlines`)
+	assert.NotContains(t, csvStr, "Has\nnewlines")
 }
 
 func TestExportCSV_EmptyComments(t *testing.T) {

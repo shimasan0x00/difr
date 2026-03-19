@@ -13,12 +13,12 @@ func formatPrefix(category, severity string) string {
 		return ""
 	}
 	if severity == "" {
-		return "[" + category + "] "
+		return "[" + category + "]"
 	}
 	if category == "" {
-		return "[" + severity + "] "
+		return "[" + severity + "]"
 	}
-	return "[" + category + "/" + severity + "] "
+	return "[" + category + "/" + severity + "]"
 }
 
 func ExportMarkdown(comments []*Comment) string {
@@ -54,9 +54,17 @@ func ExportMarkdown(comments []*Comment) string {
 		for _, c := range fileComments {
 			prefix := formatPrefix(c.ReviewCategory, c.Severity)
 			if c.Line == 0 {
-				sb.WriteString(fmt.Sprintf("- **File**: %s%s\n", prefix, c.Body))
+				if prefix != "" {
+					sb.WriteString(fmt.Sprintf("- **File**: %s\n%s\n", prefix, c.Body))
+				} else {
+					sb.WriteString(fmt.Sprintf("- **File**: %s\n", c.Body))
+				}
 			} else {
-				sb.WriteString(fmt.Sprintf("- **Line %d**: %s%s\n", c.Line, prefix, c.Body))
+				if prefix != "" {
+					sb.WriteString(fmt.Sprintf("- **Line %d**: %s\n%s\n", c.Line, prefix, c.Body))
+				} else {
+					sb.WriteString(fmt.Sprintf("- **Line %d**: %s\n", c.Line, c.Body))
+				}
 			}
 		}
 		sb.WriteString("\n")
@@ -84,7 +92,8 @@ func ExportCSV(comments []*Comment) string {
 	w := csv.NewWriter(&sb)
 	w.Write([]string{"filepath", "review_category", "severity", "comment"}) //nolint:errcheck
 	for _, c := range sorted {
-		w.Write([]string{c.FilePath, c.ReviewCategory, c.Severity, c.Body}) //nolint:errcheck
+		body := strings.ReplaceAll(c.Body, "\n", `\n`)
+		w.Write([]string{c.FilePath, c.ReviewCategory, c.Severity, body}) //nolint:errcheck
 	}
 	w.Flush()
 	return sb.String()

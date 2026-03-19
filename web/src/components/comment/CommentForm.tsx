@@ -32,31 +32,37 @@ export function CommentForm({ onSubmit, onCancel, saving = false, initialBody, i
 
   return (
     <div className="p-3 bg-[#161b22] border border-gray-700 rounded-md space-y-2">
-      <div className="flex gap-2">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as ReviewCategory | '')}
-          aria-label="Review category"
-          className="bg-[#0d1117] border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
-        >
-          <option value="">(None)</option>
-          <option value="MUST">MUST</option>
-          <option value="IMO">IMO</option>
-          <option value="Q">Q</option>
-          <option value="FYI">FYI</option>
-        </select>
-        <select
-          value={severity}
-          onChange={(e) => setSeverity(e.target.value as Severity | '')}
-          aria-label="Severity"
-          className="bg-[#0d1117] border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
-        >
-          <option value="">(None)</option>
-          <option value="Critical">Critical</option>
-          <option value="High">High</option>
-          <option value="Middle">Middle</option>
-          <option value="Low">Low</option>
-        </select>
+      <div className="flex gap-3 items-center">
+        <label className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">Category</span>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as ReviewCategory | '')}
+            aria-label="Review category"
+            className="bg-[#0d1117] border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">—</option>
+            <option value="MUST">MUST</option>
+            <option value="IMO">IMO</option>
+            <option value="Q">Q</option>
+            <option value="FYI">FYI</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">Severity</span>
+          <select
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value as Severity | '')}
+            aria-label="Severity"
+            className="bg-[#0d1117] border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">—</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Middle">Middle</option>
+            <option value="Low">Low</option>
+          </select>
+        </label>
       </div>
       <textarea
         className="w-full bg-[#0d1117] border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 resize-none focus:outline-none focus:border-blue-500"

@@ -14,11 +14,10 @@ export function formatFileComments(filePath: string, comments: Comment[]): strin
   let result = `## ${filePath}\n\n`
   for (const c of sorted) {
     const prefix = formatCommentPrefix(c.reviewCategory, c.severity)
-    const prefixStr = prefix ? `${prefix} ` : ''
     if (c.line === 0) {
-      result += `- **File**: ${prefixStr}${c.body}\n`
+      result += prefix ? `- **File**: ${prefix}\n${c.body}\n` : `- **File**: ${c.body}\n`
     } else {
-      result += `- **Line ${c.line}**: ${prefixStr}${c.body}\n`
+      result += prefix ? `- **Line ${c.line}**: ${prefix}\n${c.body}\n` : `- **Line ${c.line}**: ${c.body}\n`
     }
   }
   return result
