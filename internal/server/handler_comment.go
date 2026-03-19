@@ -228,6 +228,17 @@ func (s *Server) handleExportComments(w http.ResponseWriter, r *http.Request) {
 		if _, err := w.Write([]byte(comment.ExportCSV(comments))); err != nil {
 			slog.Error("export write error", "err", err)
 		}
+	case "xlsx":
+		data, err := comment.ExportExcel(comments)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to export comments")
+			return
+		}
+		w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		w.Header().Set("Content-Disposition", `attachment; filename="comments.xlsx"`)
+		if _, err := w.Write(data); err != nil {
+			slog.Error("export write error", "err", err)
+		}
 	default:
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="comments.md"`)

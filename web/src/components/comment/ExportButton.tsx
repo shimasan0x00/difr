@@ -48,6 +48,13 @@ export function ExportButton() {
           >
             CSV
           </a>
+          <a
+            href="/api/comments/export?format=xlsx"
+            className="block px-3 py-2 text-sm text-gray-300 hover:bg-[#1c2128]"
+            aria-label="Excel"
+          >
+            Excel
+          </a>
         </div>
       )}
     </div>

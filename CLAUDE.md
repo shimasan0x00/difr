@@ -56,7 +56,7 @@ CLI (cobra) → git diff → HTTPサーバー (Chi)
   ├── /api/diff/mode           表示モード (read-only)
   ├── /api/comments            コメント CRUD (POST/GET/DELETE)
   ├── /api/comments/{id}       個別コメント (PUT/DELETE)
-  ├── /api/comments/export     エクスポート (Markdown/JSON/CSV)
+  ├── /api/comments/export     エクスポート (Markdown/JSON/CSV/Excel)
   ├── /api/reviewed-files      レビュー済みファイル (GET/POST/DELETE)
   ├── /api/files/*             ファイルコンテンツ配信 (tracked のみ)
   ├── /api/claude/status       Claude CLI 可用性
