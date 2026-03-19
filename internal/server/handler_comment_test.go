@@ -508,7 +508,7 @@ func TestExportComments_IncludesContentDisposition(t *testing.T) {
 	req = httptest.NewRequest(http.MethodGet, "/api/comments/export?format=xlsx", nil)
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
-	assert.Equal(t, `attachment; filename="comments.xlsx"`, w.Header().Get("Content-Disposition"))
+	assert.Equal(t, `attachment; filename="`+comment.ExcelFilename()+`"`, w.Header().Get("Content-Disposition"))
 }
 
 func TestExportComments_ReturnsXlsx(t *testing.T) {
@@ -529,7 +529,7 @@ func TestExportComments_ReturnsXlsx(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", w.Header().Get("Content-Type"))
-	assert.Equal(t, `attachment; filename="comments.xlsx"`, w.Header().Get("Content-Disposition"))
+	assert.Equal(t, `attachment; filename="`+comment.ExcelFilename()+`"`, w.Header().Get("Content-Disposition"))
 
 	// Verify xlsx content is valid and contains data
 	assert.True(t, len(w.Body.Bytes()) > 0)

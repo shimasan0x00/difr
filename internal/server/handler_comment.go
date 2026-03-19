@@ -235,7 +235,7 @@ func (s *Server) handleExportComments(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-		w.Header().Set("Content-Disposition", `attachment; filename="comments.xlsx"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="`+comment.ExcelFilename()+`"`)
 		if _, err := w.Write(data); err != nil {
 			slog.Error("export write error", "err", err)
 		}

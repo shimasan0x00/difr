@@ -203,15 +203,21 @@ func TestExportExcel_BasicOutput(t *testing.T) {
 	// Sheet name
 	assert.Equal(t, "Comments", f.GetSheetName(f.GetActiveSheetIndex()))
 
-	// Header row
+	// Header row (7 columns)
 	h1, _ := f.GetCellValue("Comments", "A1")
 	h2, _ := f.GetCellValue("Comments", "B1")
 	h3, _ := f.GetCellValue("Comments", "C1")
 	h4, _ := f.GetCellValue("Comments", "D1")
+	h5, _ := f.GetCellValue("Comments", "E1")
+	h6, _ := f.GetCellValue("Comments", "F1")
+	h7, _ := f.GetCellValue("Comments", "G1")
 	assert.Equal(t, "filepath", h1)
 	assert.Equal(t, "review_category", h2)
 	assert.Equal(t, "severity", h3)
 	assert.Equal(t, "comment", h4)
+	assert.Equal(t, "resolved", h5)
+	assert.Equal(t, "reviewer_confirmed", h6)
+	assert.Equal(t, "notes", h7)
 
 	// Data rows (sorted: a.go first, then main.go)
 	a2, _ := f.GetCellValue("Comments", "A2")
@@ -226,6 +232,14 @@ func TestExportExcel_BasicOutput(t *testing.T) {
 	assert.Equal(t, "MUST", b3)
 	assert.Equal(t, "Critical", c3)
 	assert.Equal(t, "Fix this", d3)
+
+	// Extra columns are empty (for manual fill)
+	e2, _ := f.GetCellValue("Comments", "E2")
+	f2, _ := f.GetCellValue("Comments", "F2")
+	g2, _ := f.GetCellValue("Comments", "G2")
+	assert.Empty(t, e2)
+	assert.Empty(t, f2)
+	assert.Empty(t, g2)
 }
 
 func TestExportExcel_PreservesCellInternalNewlines(t *testing.T) {
@@ -248,14 +262,39 @@ func TestExportExcel_HeaderHasLightGreenBackground(t *testing.T) {
 	require.NoError(t, err)
 
 	f := openExcel(t, data)
-	styleID, _ := f.GetCellStyle("Comments", "A1")
-	style, err := f.GetStyle(styleID)
+
+	// Check first and last header cells share the same style
+	for _, cell := range []string{"A1", "G1"} {
+		styleID, _ := f.GetCellStyle("Comments", cell)
+		style, err := f.GetStyle(styleID)
+		require.NoError(t, err)
+
+		assert.True(t, style.Font.Bold, "header font should be bold (%s)", cell)
+		require.NotNil(t, style.Fill)
+		require.NotEmpty(t, style.Fill.Color)
+		assert.Equal(t, "C6EFCE", style.Fill.Color[0])
+		require.NotEmpty(t, style.Border, "header cells should have borders (%s)", cell)
+	}
+}
+
+func TestExportExcel_DataRowsHaveNoBgColorAndBorders(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 10, Body: "Fix this"},
+	}
+
+	data, err := ExportExcel(comments)
 	require.NoError(t, err)
 
-	assert.True(t, style.Font.Bold, "header font should be bold")
-	require.NotNil(t, style.Fill)
-	require.NotEmpty(t, style.Fill.Color)
-	assert.Equal(t, "C6EFCE", style.Fill.Color[0])
+	f := openExcel(t, data)
+
+	// Data cell A2 should have no background fill
+	styleID, _ := f.GetCellStyle("Comments", "A2")
+	style, err := f.GetStyle(styleID)
+	require.NoError(t, err)
+	assert.Empty(t, style.Fill.Color, "data rows should have no background color")
+
+	// Data cells should have borders
+	require.NotEmpty(t, style.Border, "data cells should have borders")
 }
 
 func TestExportExcel_EmptyComments(t *testing.T) {
@@ -301,6 +340,13 @@ func TestExportExcel_SortedByFilePathThenLine(t *testing.T) {
 	assert.Equal(t, "a10", d3)
 	assert.Equal(t, "b5", d4)
 	assert.Equal(t, "b20", d5)
+}
+
+func TestExcelFilename_ContainsTodaysDate(t *testing.T) {
+	filename := ExcelFilename()
+	today := time.Now().Format("20060102")
+
+	assert.Equal(t, "review_"+today+".xlsx", filename)
 }
 
 func TestExportExcel_SpecialCharactersPreserved(t *testing.T) {
