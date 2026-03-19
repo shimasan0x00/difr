@@ -394,6 +394,101 @@ func TestDeleteAllComments_RemovesAll(t *testing.T) {
 	assert.Empty(t, comments)
 }
 
+func TestCreateComment_WithCategoryAndSeverity(t *testing.T) {
+	s := setupCommentServer(t)
+
+	payload := `{"filePath":"main.go","line":10,"body":"fix","reviewCategory":"MUST","severity":"Critical"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var c comment.Comment
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &c))
+	assert.Equal(t, "MUST", c.ReviewCategory)
+	assert.Equal(t, "Critical", c.Severity)
+}
+
+func TestCreateComment_RejectsInvalidCategory(t *testing.T) {
+	s := setupCommentServer(t)
+
+	payload := `{"filePath":"main.go","line":1,"body":"test","reviewCategory":"INVALID"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid reviewCategory")
+}
+
+func TestCreateComment_RejectsInvalidSeverity(t *testing.T) {
+	s := setupCommentServer(t)
+
+	payload := `{"filePath":"main.go","line":1,"body":"test","severity":"INVALID"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid severity")
+}
+
+func TestUpdateComment_WithCategoryAndSeverity(t *testing.T) {
+	s := setupCommentServer(t)
+	created := createCommentViaAPI(t, s, "main.go", 1, "old")
+
+	payload := `{"body":"updated","reviewCategory":"IMO","severity":"High"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/comments/"+created.ID, bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var updated comment.Comment
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &updated))
+	assert.Equal(t, "updated", updated.Body)
+	assert.Equal(t, "IMO", updated.ReviewCategory)
+	assert.Equal(t, "High", updated.Severity)
+}
+
+func TestUpdateComment_RejectsInvalidCategory(t *testing.T) {
+	s := setupCommentServer(t)
+	created := createCommentViaAPI(t, s, "main.go", 1, "old")
+
+	payload := `{"body":"updated","reviewCategory":"BAD"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/comments/"+created.ID, bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestExportComments_ReturnsCSV(t *testing.T) {
+	s := setupCommentServer(t)
+
+	// Create comment with category/severity via full payload
+	payload := `{"filePath":"main.go","line":10,"body":"fix this","reviewCategory":"MUST","severity":"Critical"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/comments/export?format=csv", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "text/csv; charset=utf-8", w.Header().Get("Content-Type"))
+	assert.Equal(t, `attachment; filename="comments.csv"`, w.Header().Get("Content-Disposition"))
+	assert.Contains(t, w.Body.String(), "filepath,review_category,severity,comment")
+	assert.Contains(t, w.Body.String(), "main.go,MUST,Critical,fix this")
+}
+
 func TestExportComments_IncludesContentDisposition(t *testing.T) {
 	s := setupCommentServer(t)
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Comment, DiffFile, DiffLine, FileStatus, Hunk } from '../../api/types'
+import type { Comment, DiffFile, DiffLine, FileStatus, Hunk, ReviewCategory, Severity } from '../../api/types'
 import { HighlightedLine } from './SyntaxHighlight'
 import { CommentForm } from '../comment/CommentForm'
 import { InlineComment } from '../comment/InlineComment'
@@ -9,9 +9,9 @@ interface DiffViewerProps {
   file: DiffFile
   viewMode: 'split' | 'unified'
   comments?: Comment[]
-  onAddComment?: (line: number, body: string) => void
+  onAddComment?: (line: number, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   onDeleteComment?: (id: string) => void
-  onUpdateComment?: (id: string, body: string) => void
+  onUpdateComment?: (id: string, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   isReviewed?: boolean
   onToggleReviewed?: () => void
   saving?: boolean
@@ -60,8 +60,8 @@ export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDele
               ))}
               {commentingFile && onAddComment && (
                 <CommentForm
-                  onSubmit={(body) => {
-                    onAddComment(0, body)
+                  onSubmit={(body, reviewCategory, severity) => {
+                    onAddComment(0, body, reviewCategory, severity)
                     setCommentingFile(false)
                   }}
                   onCancel={() => setCommentingFile(false)}
@@ -212,9 +212,9 @@ interface ViewProps {
   hunks: Hunk[]
   language: string
   comments: Comment[]
-  onAddComment?: (line: number, body: string) => void
+  onAddComment?: (line: number, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   onDeleteComment?: (id: string) => void
-  onUpdateComment?: (id: string, body: string) => void
+  onUpdateComment?: (id: string, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   saving?: boolean
 }
 
@@ -230,9 +230,9 @@ function InlineComments({
 }: {
   lineNumber: number | undefined
   lineComments: Comment[]
-  onAddComment?: (line: number, body: string) => void
+  onAddComment?: (line: number, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   onDeleteComment?: (id: string) => void
-  onUpdateComment?: (id: string, body: string) => void
+  onUpdateComment?: (id: string, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   commentingLine: number | null
   setCommentingLine: (line: number | null) => void
   saving?: boolean
@@ -254,8 +254,8 @@ function InlineComments({
       {isCommenting && onAddComment && (
         <div className="px-4 py-1">
           <CommentForm
-            onSubmit={(body) => {
-              onAddComment(lineNumber, body)
+            onSubmit={(body, reviewCategory, severity) => {
+              onAddComment(lineNumber, body, reviewCategory, severity)
               setCommentingLine(null)
             }}
             onCancel={() => setCommentingLine(null)}

@@ -1,11 +1,25 @@
 package comment
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 )
+
+func formatPrefix(category, severity string) string {
+	if category == "" && severity == "" {
+		return ""
+	}
+	if severity == "" {
+		return "[" + category + "] "
+	}
+	if category == "" {
+		return "[" + severity + "] "
+	}
+	return "[" + category + "/" + severity + "] "
+}
 
 func ExportMarkdown(comments []*Comment) string {
 	if len(comments) == 0 {
@@ -38,15 +52,41 @@ func ExportMarkdown(comments []*Comment) string {
 		})
 
 		for _, c := range fileComments {
+			prefix := formatPrefix(c.ReviewCategory, c.Severity)
 			if c.Line == 0 {
-				sb.WriteString(fmt.Sprintf("- **File**: %s\n", c.Body))
+				sb.WriteString(fmt.Sprintf("- **File**: %s%s\n", prefix, c.Body))
 			} else {
-				sb.WriteString(fmt.Sprintf("- **Line %d**: %s\n", c.Line, c.Body))
+				sb.WriteString(fmt.Sprintf("- **Line %d**: %s%s\n", c.Line, prefix, c.Body))
 			}
 		}
 		sb.WriteString("\n")
 	}
 
+	return sb.String()
+}
+
+func ExportCSV(comments []*Comment) string {
+	if comments == nil {
+		comments = []*Comment{}
+	}
+
+	// Sort by file path then line number
+	sorted := make([]*Comment, len(comments))
+	copy(sorted, comments)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].FilePath != sorted[j].FilePath {
+			return sorted[i].FilePath < sorted[j].FilePath
+		}
+		return sorted[i].Line < sorted[j].Line
+	})
+
+	var sb strings.Builder
+	w := csv.NewWriter(&sb)
+	w.Write([]string{"filepath", "review_category", "severity", "comment"}) //nolint:errcheck
+	for _, c := range sorted {
+		w.Write([]string{c.FilePath, c.ReviewCategory, c.Severity, c.Body}) //nolint:errcheck
+	}
+	w.Flush()
 	return sb.String()
 }
 

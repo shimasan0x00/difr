@@ -10,7 +10,11 @@ import (
 )
 
 func (s *Server) handleGetDiff(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.diffResult)
+	result := s.diffResult
+	if result.Files == nil {
+		result.Files = []diff.DiffFile{}
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleGetDiffFiles(w http.ResponseWriter, r *http.Request) {

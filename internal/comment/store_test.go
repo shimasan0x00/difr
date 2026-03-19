@@ -82,17 +82,30 @@ func TestUpdate_ChangesBodyAndSetsUpdatedAt(t *testing.T) {
 	created, err := store.Create(&Comment{FilePath: "main.go", Line: 1, Body: "old"})
 	require.NoError(t, err)
 
-	updated, err := store.Update(created.ID, "new body")
+	updated, err := store.Update(created.ID, UpdateFields{Body: "new body"})
 
 	require.NoError(t, err)
 	assert.Equal(t, "new body", updated.Body)
 	assert.False(t, updated.UpdatedAt.IsZero(), "UpdatedAt should be set after update")
 }
 
+func TestUpdate_ChangesAllFields(t *testing.T) {
+	store := newTestStore(t)
+	created, err := store.Create(&Comment{FilePath: "main.go", Line: 1, Body: "old", ReviewCategory: "FYI", Severity: "Low"})
+	require.NoError(t, err)
+
+	updated, err := store.Update(created.ID, UpdateFields{Body: "new", ReviewCategory: "MUST", Severity: "Critical"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "new", updated.Body)
+	assert.Equal(t, "MUST", updated.ReviewCategory)
+	assert.Equal(t, "Critical", updated.Severity)
+}
+
 func TestUpdate_ReturnsErrNotFoundForNonexistent(t *testing.T) {
 	store := newTestStore(t)
 
-	_, err := store.Update("nonexistent", "body")
+	_, err := store.Update("nonexistent", UpdateFields{Body: "body"})
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -194,7 +207,7 @@ func TestConcurrentUpdateAndDelete_AllOperationsSucceedOrReturnErrNotFound(t *te
 			defer wg.Done()
 			id := ids[i%numComments]
 			if i%2 == 0 {
-				_, err := store.Update(id, "updated")
+				_, err := store.Update(id, UpdateFields{Body: "updated"})
 				if err != nil && err != ErrNotFound {
 					errs <- err
 				}
@@ -267,6 +280,118 @@ func TestDeleteAll_RemovesAllCommentsAndResetsID(t *testing.T) {
 	created, err := store.Create(&Comment{FilePath: "c.go", Line: 1, Body: "new"})
 	require.NoError(t, err)
 	assert.Equal(t, "c1", created.ID)
+}
+
+func TestCreate_WithReviewCategoryAndSeverity(t *testing.T) {
+	store := newTestStore(t)
+
+	created, err := store.Create(&Comment{
+		FilePath:       "main.go",
+		Line:           10,
+		Body:           "Fix this",
+		ReviewCategory: "MUST",
+		Severity:       "Critical",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "MUST", created.ReviewCategory)
+	assert.Equal(t, "Critical", created.Severity)
+
+	got, err := store.Get(created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "MUST", got.ReviewCategory)
+	assert.Equal(t, "Critical", got.Severity)
+}
+
+func TestCreate_WithEmptyCategoryAndSeverity(t *testing.T) {
+	store := newTestStore(t)
+
+	created, err := store.Create(&Comment{
+		FilePath: "main.go",
+		Line:     10,
+		Body:     "No category",
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, created.ReviewCategory)
+	assert.Empty(t, created.Severity)
+}
+
+func TestValidateCategory(t *testing.T) {
+	tests := []struct {
+		input string
+		valid bool
+	}{
+		{"", true},
+		{"MUST", true},
+		{"IMO", true},
+		{"Q", true},
+		{"FYI", true},
+		{"invalid", false},
+		{"must", false},
+	}
+	for _, tc := range tests {
+		assert.Equal(t, tc.valid, ValidateCategory(tc.input), "ValidateCategory(%q)", tc.input)
+	}
+}
+
+func TestValidateSeverity(t *testing.T) {
+	tests := []struct {
+		input string
+		valid bool
+	}{
+		{"", true},
+		{"Critical", true},
+		{"High", true},
+		{"Middle", true},
+		{"Low", true},
+		{"invalid", false},
+		{"critical", false},
+	}
+	for _, tc := range tests {
+		assert.Equal(t, tc.valid, ValidateSeverity(tc.input), "ValidateSeverity(%q)", tc.input)
+	}
+}
+
+func TestLoad_BackwardCompatibility_WithoutNewFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "comments.json")
+
+	// Write JSON without reviewCategory/severity fields
+	data := `[{"id":"c1","filePath":"main.go","line":10,"body":"old comment","createdAt":"2026-01-01T00:00:00Z"}]`
+	require.NoError(t, os.WriteFile(path, []byte(data), 0o644))
+
+	store := NewStore(path)
+	require.NoError(t, store.Load())
+
+	all := store.List("")
+	require.Len(t, all, 1)
+	assert.Equal(t, "old comment", all[0].Body)
+	assert.Empty(t, all[0].ReviewCategory)
+	assert.Empty(t, all[0].Severity)
+}
+
+func TestPersistence_WithReviewCategoryAndSeverity(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "comments.json")
+
+	store1 := NewStore(path)
+	_, err := store1.Create(&Comment{
+		FilePath:       "main.go",
+		Line:           1,
+		Body:           "important",
+		ReviewCategory: "MUST",
+		Severity:       "High",
+	})
+	require.NoError(t, err)
+
+	store2 := NewStore(path)
+	require.NoError(t, store2.Load())
+
+	all := store2.List("")
+	require.Len(t, all, 1)
+	assert.Equal(t, "MUST", all[0].ReviewCategory)
+	assert.Equal(t, "High", all[0].Severity)
 }
 
 func newTestStore(t *testing.T) *Store {

@@ -19,7 +19,7 @@ describe('CommentForm', () => {
     await user.type(screen.getByPlaceholderText(/comment/i), 'This needs refactoring')
     await user.click(screen.getByRole('button', { name: /submit|add/i }))
 
-    expect(onSubmit).toHaveBeenCalledWith('This needs refactoring')
+    expect(onSubmit).toHaveBeenCalledWith('This needs refactoring', undefined, undefined)
 
     // Verify textarea is cleared after submit
     expect(screen.getByPlaceholderText(/comment/i)).toHaveValue('')
@@ -73,7 +73,7 @@ describe('CommentForm', () => {
     await user.type(textarea, 'New text')
     await user.click(screen.getByRole('button', { name: /update/i }))
 
-    expect(onSubmit).toHaveBeenCalledWith('New text')
+    expect(onSubmit).toHaveBeenCalledWith('New text', undefined, undefined)
   })
 
   it('disables submit button and shows "Saving..." when saving', () => {
@@ -93,7 +93,7 @@ describe('CommentForm', () => {
     await user.type(textarea, 'Ctrl enter comment')
     await user.keyboard('{Control>}{Enter}{/Control}')
 
-    expect(onSubmit).toHaveBeenCalledWith('Ctrl enter comment')
+    expect(onSubmit).toHaveBeenCalledWith('Ctrl enter comment', undefined, undefined)
   })
 
   it('submits on Cmd+Enter (Meta)', async () => {
@@ -105,7 +105,7 @@ describe('CommentForm', () => {
     await user.type(textarea, 'Meta enter comment')
     await user.keyboard('{Meta>}{Enter}{/Meta}')
 
-    expect(onSubmit).toHaveBeenCalledWith('Meta enter comment')
+    expect(onSubmit).toHaveBeenCalledWith('Meta enter comment', undefined, undefined)
   })
 
   it('does not submit on plain Enter', async () => {
@@ -118,5 +118,53 @@ describe('CommentForm', () => {
     await user.keyboard('{Enter}')
 
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('renders category and severity selects', () => {
+    render(<CommentForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
+
+    expect(screen.getByLabelText('Review category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Severity')).toBeInTheDocument()
+  })
+
+  it('submits with selected category and severity', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<CommentForm onSubmit={onSubmit} onCancel={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Review category'), 'MUST')
+    await user.selectOptions(screen.getByLabelText('Severity'), 'Critical')
+    await user.type(screen.getByPlaceholderText(/comment/i), 'Fix this')
+    await user.click(screen.getByRole('button', { name: /add/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith('Fix this', 'MUST', 'Critical')
+  })
+
+  it('pre-fills category and severity from initial props', () => {
+    render(
+      <CommentForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        initialBody="test"
+        initialCategory="IMO"
+        initialSeverity="High"
+      />,
+    )
+
+    expect(screen.getByLabelText('Review category')).toHaveValue('IMO')
+    expect(screen.getByLabelText('Severity')).toHaveValue('High')
+  })
+
+  it('resets selects after submit', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<CommentForm onSubmit={onSubmit} onCancel={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Review category'), 'FYI')
+    await user.type(screen.getByPlaceholderText(/comment/i), 'test')
+    await user.click(screen.getByRole('button', { name: /add/i }))
+
+    expect(screen.getByLabelText('Review category')).toHaveValue('')
+    expect(screen.getByLabelText('Severity')).toHaveValue('')
   })
 })

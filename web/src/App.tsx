@@ -289,7 +289,7 @@ function App() {
                       file={file}
                       viewMode={viewMode}
                       comments={commentsByFile.get(filePath) ?? []}
-                      onAddComment={(line, body) => addComment(filePath, line, body)}
+                      onAddComment={(line, body, cat, sev) => addComment(filePath, line, body, cat, sev)}
                       onDeleteComment={removeComment}
                       onUpdateComment={updateComment}
                       isReviewed={reviewedFiles.has(filePath)}

@@ -2,6 +2,7 @@ package comment
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,6 +89,81 @@ func TestExportMarkdown_FileCommentUsesFileLabel(t *testing.T) {
 	assert.Contains(t, md, "- **File**: General feedback")
 	assert.Contains(t, md, "- **Line 10**: Fix this")
 	assert.NotContains(t, md, "Line 0")
+}
+
+func TestExportMarkdown_WithCategoryAndSeverityPrefix(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 10, Body: "Fix this", ReviewCategory: "MUST", Severity: "Critical", CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: "c2", FilePath: "main.go", Line: 20, Body: "Consider this", ReviewCategory: "IMO", CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: "c3", FilePath: "main.go", Line: 30, Body: "No prefix", CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: "c4", FilePath: "main.go", Line: 0, Body: "File comment", ReviewCategory: "FYI", Severity: "Low", CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+	}
+
+	md := ExportMarkdown(comments)
+
+	assert.Contains(t, md, "- **Line 10**: [MUST/Critical] Fix this")
+	assert.Contains(t, md, "- **Line 20**: [IMO] Consider this")
+	assert.Contains(t, md, "- **Line 30**: No prefix")
+	assert.Contains(t, md, "- **File**: [FYI/Low] File comment")
+}
+
+func TestExportCSV_BasicOutput(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 10, Body: "Fix this", ReviewCategory: "MUST", Severity: "Critical"},
+		{ID: "c2", FilePath: "a.go", Line: 5, Body: "Check this"},
+	}
+
+	csvStr := ExportCSV(comments)
+
+	assert.Contains(t, csvStr, "filepath,review_category,severity,comment\n")
+	assert.Contains(t, csvStr, "a.go,,,Check this\n")
+	assert.Contains(t, csvStr, "main.go,MUST,Critical,Fix this\n")
+}
+
+func TestExportCSV_EscapesSpecialCharacters(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 1, Body: "Has \"quotes\" and, commas"},
+		{ID: "c2", FilePath: "test.go", Line: 2, Body: "Has\nnewlines"},
+	}
+
+	csvStr := ExportCSV(comments)
+
+	assert.Contains(t, csvStr, `"Has ""quotes"" and, commas"`)
+	assert.Contains(t, csvStr, "\"Has\nnewlines\"")
+}
+
+func TestExportCSV_EmptyComments(t *testing.T) {
+	csvStr := ExportCSV([]*Comment{})
+
+	assert.Equal(t, "filepath,review_category,severity,comment\n", csvStr)
+}
+
+func TestExportCSV_NilComments(t *testing.T) {
+	csvStr := ExportCSV(nil)
+
+	assert.Equal(t, "filepath,review_category,severity,comment\n", csvStr)
+}
+
+func TestExportCSV_SortedByFilePathThenLine(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "b.go", Line: 20, Body: "b20"},
+		{ID: "c2", FilePath: "a.go", Line: 10, Body: "a10"},
+		{ID: "c3", FilePath: "b.go", Line: 5, Body: "b5"},
+		{ID: "c4", FilePath: "a.go", Line: 1, Body: "a1"},
+	}
+
+	csvStr := ExportCSV(comments)
+
+	lines := strings.Split(strings.TrimSpace(csvStr), "\n")
+	require.Len(t, lines, 5) // header + 4 data rows
+	assert.Contains(t, lines[1], "a.go")
+	assert.Contains(t, lines[1], "a1")
+	assert.Contains(t, lines[2], "a.go")
+	assert.Contains(t, lines[2], "a10")
+	assert.Contains(t, lines[3], "b.go")
+	assert.Contains(t, lines[3], "b5")
+	assert.Contains(t, lines[4], "b.go")
+	assert.Contains(t, lines[4], "b20")
 }
 
 func TestExportJSON_EmptyCommentsReturnsEmptyArray(t *testing.T) {

@@ -44,11 +44,16 @@ export interface DiffResult {
   meta: DiffMeta
 }
 
+export type ReviewCategory = 'MUST' | 'IMO' | 'Q' | 'FYI'
+export type Severity = 'Critical' | 'High' | 'Middle' | 'Low'
+
 export interface Comment {
   id: string
   filePath: string
   line: number
   body: string
+  reviewCategory?: ReviewCategory
+  severity?: Severity
   createdAt: string
   updatedAt?: string
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Comment } from '../api/types'
+import type { Comment, ReviewCategory, Severity } from '../api/types'
 import * as api from '../api/client'
 
 interface CommentState {
@@ -7,8 +7,8 @@ interface CommentState {
   loading: boolean
   saving: boolean
   error: string | null
-  addComment: (filePath: string, line: number, body: string) => Promise<void>
-  updateComment: (id: string, body: string) => Promise<void>
+  addComment: (filePath: string, line: number, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => Promise<void>
+  updateComment: (id: string, body: string, reviewCategory?: ReviewCategory, severity?: Severity) => Promise<void>
   removeComment: (id: string) => Promise<void>
   loadComments: (filePath?: string) => Promise<void>
   clearAll: () => Promise<void>
@@ -19,21 +19,21 @@ export const useCommentStore = create<CommentState>((set, get) => ({
   loading: false,
   saving: false,
   error: null,
-  addComment: async (filePath, line, body) => {
+  addComment: async (filePath, line, body, reviewCategory, severity) => {
     if (get().saving) return
     try {
       set({ saving: true, error: null })
-      const comment = await api.createComment(filePath, line, body)
+      const comment = await api.createComment(filePath, line, body, reviewCategory, severity)
       set((state) => ({ comments: [...state.comments, comment], saving: false }))
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to add comment', saving: false })
     }
   },
-  updateComment: async (id, body) => {
+  updateComment: async (id, body, reviewCategory, severity) => {
     if (get().saving) return
     try {
       set({ saving: true, error: null })
-      const updated = await api.updateComment(id, body)
+      const updated = await api.updateComment(id, body, reviewCategory, severity)
       set((state) => ({
         comments: state.comments.map((c) => (c.id === id ? updated : c)),
         saving: false,
