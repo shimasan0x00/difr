@@ -98,6 +98,7 @@ React App → Zustand stores
 - コメント分類: `ReviewCategory` (MUST/IMO/Q/FYI) + `Severity` (Critical/High/Middle/Low)、両フィールド任意 (`omitempty`)
 - コメントコピー: プレフィックスあり時 `filePath:line\n[Category/Severity]\nbody` 形式。Copy All は Markdown にプレフィックス付与
 - CSV エクスポート: `encoding/csv` でエスケープ、改行は `\n` リテラルに置換。ヘッダー: `filepath,review_category,severity,comment`
+- Excel エクスポート: `excelize/v2` で `.xlsx` 生成。ファイル名 `review_YYYYMMDD.xlsx`。ヘッダー薄緑 (`#C6EFCE`) + 枠線 + AutoFilter。手動記入用列: `resolved`, `reviewer_confirmed`, `notes`。`sortedComments()` ヘルパーを CSV と共有
 - InlineComment バッジ色分け: MUST=赤, IMO=青, Q=黄, FYI=緑
 - WebSocket Claude: NDJSON 行単位リアルタイムストリーミング、指数バックオフ再接続（最大5回）
 - HTTP タイムアウト: Read 30s / Write 0 (WebSocket 長期接続のため無制限。リクエスト単位はハンドラレベルで制御) / Idle 120s
