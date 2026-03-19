@@ -1,4 +1,11 @@
-import type { Comment } from '../api/types'
+import type { Comment, ReviewCategory, Severity } from '../api/types'
+
+export function formatCommentPrefix(category?: ReviewCategory, severity?: Severity): string {
+  if (!category && !severity) return ''
+  if (!severity) return `[${category}]`
+  if (!category) return `[${severity}]`
+  return `[${category}/${severity}]`
+}
 
 export function formatFileComments(filePath: string, comments: Comment[]): string {
   if (comments.length === 0) return ''
@@ -6,10 +13,11 @@ export function formatFileComments(filePath: string, comments: Comment[]): strin
   const sorted = [...comments].sort((a, b) => a.line - b.line)
   let result = `## ${filePath}\n\n`
   for (const c of sorted) {
+    const prefix = formatCommentPrefix(c.reviewCategory, c.severity)
     if (c.line === 0) {
-      result += `- **File**: ${c.body}\n`
+      result += prefix ? `- **File**: ${prefix}\n${c.body}\n` : `- **File**: ${c.body}\n`
     } else {
-      result += `- **Line ${c.line}**: ${c.body}\n`
+      result += prefix ? `- **Line ${c.line}**: ${prefix}\n${c.body}\n` : `- **Line ${c.line}**: ${c.body}\n`
     }
   }
   return result

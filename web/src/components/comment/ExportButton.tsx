@@ -41,6 +41,13 @@ export function ExportButton() {
           >
             JSON
           </a>
+          <a
+            href="/api/comments/export?format=csv"
+            className="block px-3 py-2 text-sm text-gray-300 hover:bg-[#1c2128]"
+            aria-label="CSV"
+          >
+            CSV
+          </a>
         </div>
       )}
     </div>

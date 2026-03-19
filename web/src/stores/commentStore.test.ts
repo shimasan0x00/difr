@@ -64,6 +64,17 @@ describe('commentStore', () => {
       expect(state.error).toBe('network error')
     })
 
+    it('passes reviewCategory and severity to API', async () => {
+      vi.mocked(api.createComment).mockResolvedValue({ ...mockComment, reviewCategory: 'MUST', severity: 'Critical' })
+
+      await useCommentStore.getState().addComment('main.go', 10, 'needs fix', 'MUST', 'Critical')
+
+      expect(api.createComment).toHaveBeenCalledWith('main.go', 10, 'needs fix', 'MUST', 'Critical')
+      const state = useCommentStore.getState()
+      expect(state.comments[0].reviewCategory).toBe('MUST')
+      expect(state.comments[0].severity).toBe('Critical')
+    })
+
     it('handles non-Error rejection with fallback message', async () => {
       vi.mocked(api.createComment).mockRejectedValue('string error')
 
@@ -105,6 +116,17 @@ describe('commentStore', () => {
       expect(state.comments).toHaveLength(1)
       expect(state.comments[0].body).toBe('updated body')
       expect(state.saving).toBe(false)
+    })
+
+    it('passes reviewCategory and severity to API', async () => {
+      const updated = { ...mockComment, body: 'updated', reviewCategory: 'IMO' as const, severity: 'High' as const }
+      useCommentStore.setState({ comments: [mockComment] })
+      vi.mocked(api.updateComment).mockResolvedValue(updated)
+
+      await useCommentStore.getState().updateComment('c1', 'updated', 'IMO', 'High')
+
+      expect(api.updateComment).toHaveBeenCalledWith('c1', 'updated', 'IMO', 'High')
+      expect(useCommentStore.getState().comments[0].reviewCategory).toBe('IMO')
     })
 
     it('sets error on API failure', async () => {

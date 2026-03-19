@@ -1,4 +1,4 @@
-import type { Comment, DiffMeta, DiffResult, FileContent } from './types'
+import type { Comment, DiffMeta, DiffResult, FileContent, ReviewCategory, Severity } from './types'
 
 async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -45,21 +45,21 @@ export async function fetchComments(filePath?: string): Promise<Comment[]> {
   return res.json()
 }
 
-export async function createComment(filePath: string, line: number, body: string): Promise<Comment> {
+export async function createComment(filePath: string, line: number, body: string, reviewCategory?: ReviewCategory, severity?: Severity): Promise<Comment> {
   const res = await fetch('/api/comments', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filePath, line, body }),
+    body: JSON.stringify({ filePath, line, body, reviewCategory, severity }),
   })
   if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to create comment'))
   return res.json()
 }
 
-export async function updateComment(id: string, body: string): Promise<Comment> {
+export async function updateComment(id: string, body: string, reviewCategory?: ReviewCategory, severity?: Severity): Promise<Comment> {
   const res = await fetch(`/api/comments/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, reviewCategory, severity }),
   })
   if (!res.ok) throw new Error(await extractErrorMessage(res, 'Failed to update comment'))
   return res.json()

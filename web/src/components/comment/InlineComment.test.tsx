@@ -58,7 +58,7 @@ describe('InlineComment', () => {
     expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument()
   })
 
-  it('calls onUpdate with id and new body when edit form is submitted', async () => {
+  it('calls onUpdate with id, body, category, and severity when edit form is submitted', async () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     render(<InlineComment comment={mockComment} onDelete={vi.fn()} onUpdate={onUpdate} />)
@@ -69,7 +69,7 @@ describe('InlineComment', () => {
     await user.type(textarea, 'Updated text')
     await user.click(screen.getByRole('button', { name: /update/i }))
 
-    expect(onUpdate).toHaveBeenCalledWith('c1', 'Updated text')
+    expect(onUpdate).toHaveBeenCalledWith('c1', 'Updated text', undefined, undefined)
   })
 
   it('does not show edit button when onUpdate is not provided', () => {
@@ -146,6 +146,83 @@ describe('InlineComment', () => {
       await user.click(screen.getByRole('button', { name: /copy/i }))
 
       expect(screen.getByText('Copied!')).toBeInTheDocument()
+    })
+
+    it('copies with prefix when category and severity are set', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(writeText)
+
+      const commentWithMeta: Comment = {
+        ...mockComment,
+        reviewCategory: 'MUST',
+        severity: 'Critical',
+      }
+      render(<InlineComment comment={commentWithMeta} onDelete={vi.fn()} />)
+
+      await user.click(screen.getByRole('button', { name: /copy/i }))
+
+      expect(writeText).toHaveBeenCalledWith('main.go:10\n[MUST/Critical]\n- This needs refactoring')
+    })
+
+    it('copies file-level comment with prefix', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(writeText)
+
+      const fileComment: Comment = {
+        id: 'c3',
+        filePath: 'main.go',
+        line: 0,
+        body: 'File feedback',
+        reviewCategory: 'FYI',
+        severity: 'Low',
+        createdAt: '2026-01-01T00:00:00Z',
+      }
+      render(<InlineComment comment={fileComment} onDelete={vi.fn()} />)
+
+      await user.click(screen.getByRole('button', { name: /copy/i }))
+
+      expect(writeText).toHaveBeenCalledWith('main.go\n[FYI/Low]\n- File feedback')
+    })
+  })
+
+  describe('category and severity badges', () => {
+    it('shows category badge when reviewCategory is set', () => {
+      const commentWithCategory: Comment = { ...mockComment, reviewCategory: 'MUST' }
+      render(<InlineComment comment={commentWithCategory} onDelete={vi.fn()} />)
+
+      expect(screen.getByText('MUST')).toBeInTheDocument()
+    })
+
+    it('shows severity text when severity is set', () => {
+      const commentWithSeverity: Comment = { ...mockComment, severity: 'Critical' }
+      render(<InlineComment comment={commentWithSeverity} onDelete={vi.fn()} />)
+
+      expect(screen.getByText('Critical')).toBeInTheDocument()
+    })
+
+    it('does not show badges when category and severity are not set', () => {
+      render(<InlineComment comment={mockComment} onDelete={vi.fn()} />)
+
+      expect(screen.queryByText('MUST')).not.toBeInTheDocument()
+      expect(screen.queryByText('Critical')).not.toBeInTheDocument()
+    })
+
+    it('passes initialCategory and initialSeverity to edit form', async () => {
+      const user = userEvent.setup()
+      const onUpdate = vi.fn()
+      const commentWithMeta: Comment = {
+        ...mockComment,
+        reviewCategory: 'IMO',
+        severity: 'High',
+      }
+      render(<InlineComment comment={commentWithMeta} onDelete={vi.fn()} onUpdate={onUpdate} />)
+
+      await user.click(screen.getByRole('button', { name: /edit/i }))
+
+      expect(screen.getByLabelText('Review category')).toHaveValue('IMO')
+      expect(screen.getByLabelText('Severity')).toHaveValue('High')
     })
   })
 })

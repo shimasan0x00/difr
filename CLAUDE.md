@@ -56,7 +56,7 @@ CLI (cobra) → git diff → HTTPサーバー (Chi)
   ├── /api/diff/mode           表示モード (read-only)
   ├── /api/comments            コメント CRUD (POST/GET/DELETE)
   ├── /api/comments/{id}       個別コメント (PUT/DELETE)
-  ├── /api/comments/export     エクスポート (Markdown/JSON)
+  ├── /api/comments/export     エクスポート (Markdown/JSON/CSV)
   ├── /api/reviewed-files      レビュー済みファイル (GET/POST/DELETE)
   ├── /api/files/*             ファイルコンテンツ配信 (tracked のみ)
   ├── /api/claude/status       Claude CLI 可用性
@@ -64,7 +64,7 @@ CLI (cobra) → git diff → HTTPサーバー (Chi)
   └── /*                       フロントエンド (dev: proxy, prod: embed)
 
 React App → Zustand stores
-  ├── DiffViewer (Split/Unified + Shiki) + CommentForm
+  ├── DiffViewer (Split/Unified + Shiki) + CommentForm (Category/Severity 選択)
   ├── FileViewer (未変更ファイル表示 + Shiki)
   ├── FileListPanel (Changed / All Files タブ)
   │   └── DirectoryTree (IDE 風ディレクトリツリー)
@@ -94,7 +94,11 @@ React App → Zustand stores
 ## 主要な設計判断
 
 - 型定義は `internal/diff/types.go` に集約（循環 import 回避）
-- コメント Store: `sync.RWMutex` 並行安全、CUD で自動永続化 + ロールバック
+- コメント Store: `sync.RWMutex` 並行安全、CUD で自動永続化 + ロールバック。`UpdateFields` 構造体で更新
+- コメント分類: `ReviewCategory` (MUST/IMO/Q/FYI) + `Severity` (Critical/High/Middle/Low)、両フィールド任意 (`omitempty`)
+- コメントコピー: プレフィックスあり時 `filePath:line\n[Category/Severity]\nbody` 形式。Copy All は Markdown にプレフィックス付与
+- CSV エクスポート: `encoding/csv` でエスケープ、改行は `\n` リテラルに置換。ヘッダー: `filepath,review_category,severity,comment`
+- InlineComment バッジ色分け: MUST=赤, IMO=青, Q=黄, FYI=緑
 - WebSocket Claude: NDJSON 行単位リアルタイムストリーミング、指数バックオフ再接続（最大5回）
 - HTTP タイムアウト: Read 30s / Write 0 (WebSocket 長期接続のため無制限。リクエスト単位はハンドラレベルで制御) / Idle 120s
 - Claude タイムアウト: `--claude-timeout` フラグ (duration: 10m, 300s 等)、デフォルト5分

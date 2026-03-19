@@ -29,13 +29,17 @@ func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
 }
 
 type createCommentRequest struct {
-	FilePath string `json:"filePath"`
-	Line     int    `json:"line"`
-	Body     string `json:"body"`
+	FilePath       string `json:"filePath"`
+	Line           int    `json:"line"`
+	Body           string `json:"body"`
+	ReviewCategory string `json:"reviewCategory"`
+	Severity       string `json:"severity"`
 }
 
 type updateCommentRequest struct {
-	Body string `json:"body"`
+	Body           string `json:"body"`
+	ReviewCategory string `json:"reviewCategory"`
+	Severity       string `json:"severity"`
 }
 
 const maxCommentBodySize = 1 << 20 // 1MB
@@ -71,11 +75,21 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "filePath is not in the current diff")
 		return
 	}
+	if !comment.ValidateCategory(req.ReviewCategory) {
+		writeError(w, http.StatusBadRequest, "invalid reviewCategory")
+		return
+	}
+	if !comment.ValidateSeverity(req.Severity) {
+		writeError(w, http.StatusBadRequest, "invalid severity")
+		return
+	}
 
 	c, err := s.commentStore.Create(&comment.Comment{
-		FilePath: req.FilePath,
-		Line:     req.Line,
-		Body:     req.Body,
+		FilePath:       req.FilePath,
+		Line:           req.Line,
+		Body:           req.Body,
+		ReviewCategory: req.ReviewCategory,
+		Severity:       req.Severity,
 	})
 	if err != nil {
 		slog.Error("create comment error", "err", err)
@@ -139,8 +153,20 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "body is required")
 		return
 	}
+	if !comment.ValidateCategory(req.ReviewCategory) {
+		writeError(w, http.StatusBadRequest, "invalid reviewCategory")
+		return
+	}
+	if !comment.ValidateSeverity(req.Severity) {
+		writeError(w, http.StatusBadRequest, "invalid severity")
+		return
+	}
 
-	c, err := s.commentStore.Update(id, req.Body)
+	c, err := s.commentStore.Update(id, comment.UpdateFields{
+		Body:           req.Body,
+		ReviewCategory: req.ReviewCategory,
+		Severity:       req.Severity,
+	})
 	if err != nil {
 		if errors.Is(err, comment.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
@@ -194,6 +220,12 @@ func (s *Server) handleExportComments(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", `attachment; filename="comments.json"`)
 		if _, err := w.Write([]byte(jsonStr)); err != nil {
+			slog.Error("export write error", "err", err)
+		}
+	case "csv":
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="comments.csv"`)
+		if _, err := w.Write([]byte(comment.ExportCSV(comments))); err != nil {
 			slog.Error("export write error", "err", err)
 		}
 	default:

@@ -1,11 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { formatFileComments, formatAllComments } from './formatComments'
+import { formatFileComments, formatAllComments, formatCommentPrefix } from './formatComments'
 import type { Comment } from '../api/types'
 
 const makeComment = (overrides: Partial<Comment> & { filePath: string; line: number; body: string }): Comment => ({
   id: 'c1',
   createdAt: '2026-01-01T00:00:00Z',
   ...overrides,
+})
+
+describe('formatCommentPrefix', () => {
+  it('returns empty string when both are undefined', () => {
+    expect(formatCommentPrefix()).toBe('')
+  })
+
+  it('returns category only when severity is undefined', () => {
+    expect(formatCommentPrefix('MUST')).toBe('[MUST]')
+  })
+
+  it('returns severity only when category is undefined', () => {
+    expect(formatCommentPrefix(undefined, 'Critical')).toBe('[Critical]')
+  })
+
+  it('returns both when both are set', () => {
+    expect(formatCommentPrefix('MUST', 'Critical')).toBe('[MUST/Critical]')
+  })
 })
 
 describe('formatFileComments', () => {
@@ -35,6 +53,24 @@ describe('formatFileComments', () => {
     const result = formatFileComments('main.go', comments)
     expect(result).toBe(
       '## main.go\n\n- **Line 10**: First\n- **Line 25**: Second\n',
+    )
+  })
+
+  it('includes prefix when category and severity are set', () => {
+    const comments = [
+      makeComment({ filePath: 'main.go', line: 10, body: 'Fix this', reviewCategory: 'MUST', severity: 'Critical' }),
+    ]
+    expect(formatFileComments('main.go', comments)).toBe(
+      '## main.go\n\n- **Line 10**: [MUST/Critical]\nFix this\n',
+    )
+  })
+
+  it('includes prefix with category only', () => {
+    const comments = [
+      makeComment({ filePath: 'main.go', line: 10, body: 'Consider', reviewCategory: 'IMO' }),
+    ]
+    expect(formatFileComments('main.go', comments)).toBe(
+      '## main.go\n\n- **Line 10**: [IMO]\nConsider\n',
     )
   })
 })

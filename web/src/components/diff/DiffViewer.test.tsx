@@ -352,7 +352,7 @@ describe('DiffViewer', () => {
       await user.type(screen.getByPlaceholderText(/comment/i), 'General feedback')
       await user.click(screen.getByRole('button', { name: 'Add Comment' }))
 
-      expect(onAddComment).toHaveBeenCalledWith(0, 'General feedback')
+      expect(onAddComment).toHaveBeenCalledWith(0, 'General feedback', undefined, undefined)
     })
 
     it('displays file-level comments above diff content', () => {

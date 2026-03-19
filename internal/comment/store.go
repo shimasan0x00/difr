@@ -14,12 +14,44 @@ import (
 var ErrNotFound = errors.New("comment not found")
 
 type Comment struct {
-	ID        string    `json:"id"`
-	FilePath  string    `json:"filePath"`
-	Line      int       `json:"line"`
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt,omitempty"`
+	ID             string    `json:"id"`
+	FilePath       string    `json:"filePath"`
+	Line           int       `json:"line"`
+	Body           string    `json:"body"`
+	ReviewCategory string    `json:"reviewCategory,omitempty"`
+	Severity       string    `json:"severity,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt,omitempty"`
+}
+
+type UpdateFields struct {
+	Body           string
+	ReviewCategory string
+	Severity       string
+}
+
+var validCategories = map[string]bool{
+	"":     true,
+	"MUST": true,
+	"IMO":  true,
+	"Q":    true,
+	"FYI":  true,
+}
+
+var validSeverities = map[string]bool{
+	"":         true,
+	"Critical": true,
+	"High":     true,
+	"Middle":   true,
+	"Low":      true,
+}
+
+func ValidateCategory(v string) bool {
+	return validCategories[v]
+}
+
+func ValidateSeverity(v string) bool {
+	return validSeverities[v]
 }
 
 type Store struct {
@@ -42,11 +74,13 @@ func (s *Store) Create(c *Comment) (*Comment, error) {
 	defer s.mu.Unlock()
 
 	comment := &Comment{
-		ID:        fmt.Sprintf("c%d", s.nextID),
-		FilePath:  c.FilePath,
-		Line:      c.Line,
-		Body:      c.Body,
-		CreatedAt: time.Now(),
+		ID:             fmt.Sprintf("c%d", s.nextID),
+		FilePath:       c.FilePath,
+		Line:           c.Line,
+		Body:           c.Body,
+		ReviewCategory: c.ReviewCategory,
+		Severity:       c.Severity,
+		CreatedAt:      time.Now(),
 	}
 	s.nextID++
 	s.comments[comment.ID] = comment
@@ -91,7 +125,7 @@ func (s *Store) List(filePath string) []*Comment {
 	return result
 }
 
-func (s *Store) Update(id, body string) (*Comment, error) {
+func (s *Store) Update(id string, fields UpdateFields) (*Comment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -101,13 +135,19 @@ func (s *Store) Update(id, body string) (*Comment, error) {
 	}
 
 	oldBody := c.Body
+	oldCategory := c.ReviewCategory
+	oldSeverity := c.Severity
 	oldUpdatedAt := c.UpdatedAt
 
-	c.Body = body
+	c.Body = fields.Body
+	c.ReviewCategory = fields.ReviewCategory
+	c.Severity = fields.Severity
 	c.UpdatedAt = time.Now()
 
 	if err := s.saveLocked(); err != nil {
 		c.Body = oldBody
+		c.ReviewCategory = oldCategory
+		c.Severity = oldSeverity
 		c.UpdatedAt = oldUpdatedAt
 		return nil, fmt.Errorf("persisting comment: %w", err)
 	}

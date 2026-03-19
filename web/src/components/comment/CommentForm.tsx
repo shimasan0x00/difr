@@ -1,19 +1,26 @@
 import { useState } from 'react'
+import type { ReviewCategory, Severity } from '../../api/types'
 
 interface CommentFormProps {
-  onSubmit: (body: string) => void
+  onSubmit: (body: string, reviewCategory?: ReviewCategory, severity?: Severity) => void
   onCancel: () => void
   saving?: boolean
   initialBody?: string
+  initialCategory?: ReviewCategory
+  initialSeverity?: Severity
 }
 
-export function CommentForm({ onSubmit, onCancel, saving = false, initialBody }: CommentFormProps) {
+export function CommentForm({ onSubmit, onCancel, saving = false, initialBody, initialCategory, initialSeverity }: CommentFormProps) {
   const [body, setBody] = useState(initialBody ?? '')
+  const [category, setCategory] = useState<ReviewCategory | ''>(initialCategory ?? '')
+  const [severity, setSeverity] = useState<Severity | ''>(initialSeverity ?? '')
 
   const handleSubmit = () => {
     if (body.trim() === '' || saving) return
-    onSubmit(body)
+    onSubmit(body, category || undefined, severity || undefined)
     setBody('')
+    setCategory('')
+    setSeverity('')
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -25,6 +32,38 @@ export function CommentForm({ onSubmit, onCancel, saving = false, initialBody }:
 
   return (
     <div className="p-3 bg-[#161b22] border border-gray-700 rounded-md space-y-2">
+      <div className="flex gap-3 items-center">
+        <label className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">Category</span>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as ReviewCategory | '')}
+            aria-label="Review category"
+            className="bg-[#0d1117] border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">—</option>
+            <option value="MUST">MUST</option>
+            <option value="IMO">IMO</option>
+            <option value="Q">Q</option>
+            <option value="FYI">FYI</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">Severity</span>
+          <select
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value as Severity | '')}
+            aria-label="Severity"
+            className="bg-[#0d1117] border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
+          >
+            <option value="">—</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Middle">Middle</option>
+            <option value="Low">Low</option>
+          </select>
+        </label>
+      </div>
       <textarea
         className="w-full bg-[#0d1117] border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 resize-none focus:outline-none focus:border-blue-500"
         rows={3}
