@@ -1,6 +1,7 @@
 package comment
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xuri/excelize/v2"
 )
 
 func TestExportMarkdown_GroupsByFileAndIncludesLineReferences(t *testing.T) {
@@ -175,4 +177,190 @@ func TestExportJSON_EmptyCommentsReturnsEmptyArray(t *testing.T) {
 	var parsed []Comment
 	require.NoError(t, json.Unmarshal([]byte(jsonStr), &parsed))
 	assert.Empty(t, parsed)
+}
+
+// --- Excel export tests ---
+
+func openExcel(t *testing.T, data []byte) *excelize.File {
+	t.Helper()
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	require.NoError(t, err)
+	t.Cleanup(func() { f.Close() })
+	return f
+}
+
+func TestExportExcel_BasicOutput(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 10, Body: "Fix this", ReviewCategory: "MUST", Severity: "Critical"},
+		{ID: "c2", FilePath: "a.go", Line: 5, Body: "Check this"},
+	}
+
+	data, err := ExportExcel(comments)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+
+	// Sheet name
+	assert.Equal(t, "Comments", f.GetSheetName(f.GetActiveSheetIndex()))
+
+	// Header row (7 columns)
+	h1, _ := f.GetCellValue("Comments", "A1")
+	h2, _ := f.GetCellValue("Comments", "B1")
+	h3, _ := f.GetCellValue("Comments", "C1")
+	h4, _ := f.GetCellValue("Comments", "D1")
+	h5, _ := f.GetCellValue("Comments", "E1")
+	h6, _ := f.GetCellValue("Comments", "F1")
+	h7, _ := f.GetCellValue("Comments", "G1")
+	assert.Equal(t, "filepath", h1)
+	assert.Equal(t, "review_category", h2)
+	assert.Equal(t, "severity", h3)
+	assert.Equal(t, "comment", h4)
+	assert.Equal(t, "resolved", h5)
+	assert.Equal(t, "reviewer_confirmed", h6)
+	assert.Equal(t, "notes", h7)
+
+	// Data rows (sorted: a.go first, then main.go)
+	a2, _ := f.GetCellValue("Comments", "A2")
+	d2, _ := f.GetCellValue("Comments", "D2")
+	a3, _ := f.GetCellValue("Comments", "A3")
+	b3, _ := f.GetCellValue("Comments", "B3")
+	c3, _ := f.GetCellValue("Comments", "C3")
+	d3, _ := f.GetCellValue("Comments", "D3")
+	assert.Equal(t, "a.go", a2)
+	assert.Equal(t, "Check this", d2)
+	assert.Equal(t, "main.go", a3)
+	assert.Equal(t, "MUST", b3)
+	assert.Equal(t, "Critical", c3)
+	assert.Equal(t, "Fix this", d3)
+
+	// Extra columns are empty (for manual fill)
+	e2, _ := f.GetCellValue("Comments", "E2")
+	f2, _ := f.GetCellValue("Comments", "F2")
+	g2, _ := f.GetCellValue("Comments", "G2")
+	assert.Empty(t, e2)
+	assert.Empty(t, f2)
+	assert.Empty(t, g2)
+}
+
+func TestExportExcel_PreservesCellInternalNewlines(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 1, Body: "Line 1\nLine 2\nLine 3"},
+	}
+
+	data, err := ExportExcel(comments)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+	val, _ := f.GetCellValue("Comments", "D2")
+	assert.Equal(t, "Line 1\nLine 2\nLine 3", val)
+}
+
+func TestExportExcel_HeaderHasLightGreenBackground(t *testing.T) {
+	comments := []*Comment{}
+
+	data, err := ExportExcel(comments)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+
+	// Check first and last header cells share the same style
+	for _, cell := range []string{"A1", "G1"} {
+		styleID, _ := f.GetCellStyle("Comments", cell)
+		style, err := f.GetStyle(styleID)
+		require.NoError(t, err)
+
+		assert.True(t, style.Font.Bold, "header font should be bold (%s)", cell)
+		require.NotNil(t, style.Fill)
+		require.NotEmpty(t, style.Fill.Color)
+		assert.Equal(t, "C6EFCE", style.Fill.Color[0])
+		require.NotEmpty(t, style.Border, "header cells should have borders (%s)", cell)
+	}
+}
+
+func TestExportExcel_DataRowsHaveNoBgColorAndBorders(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "main.go", Line: 10, Body: "Fix this"},
+	}
+
+	data, err := ExportExcel(comments)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+
+	// Data cell A2 should have no background fill
+	styleID, _ := f.GetCellStyle("Comments", "A2")
+	style, err := f.GetStyle(styleID)
+	require.NoError(t, err)
+	assert.Empty(t, style.Fill.Color, "data rows should have no background color")
+
+	// Data cells should have borders
+	require.NotEmpty(t, style.Border, "data cells should have borders")
+}
+
+func TestExportExcel_EmptyComments(t *testing.T) {
+	data, err := ExportExcel([]*Comment{})
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+	h1, _ := f.GetCellValue("Comments", "A1")
+	assert.Equal(t, "filepath", h1)
+
+	// No data row
+	a2, _ := f.GetCellValue("Comments", "A2")
+	assert.Empty(t, a2)
+}
+
+func TestExportExcel_NilComments(t *testing.T) {
+	data, err := ExportExcel(nil)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+	h1, _ := f.GetCellValue("Comments", "A1")
+	assert.Equal(t, "filepath", h1)
+}
+
+func TestExportExcel_SortedByFilePathThenLine(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "b.go", Line: 20, Body: "b20"},
+		{ID: "c2", FilePath: "a.go", Line: 10, Body: "a10"},
+		{ID: "c3", FilePath: "b.go", Line: 5, Body: "b5"},
+		{ID: "c4", FilePath: "a.go", Line: 1, Body: "a1"},
+	}
+
+	data, err := ExportExcel(comments)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+
+	d2, _ := f.GetCellValue("Comments", "D2")
+	d3, _ := f.GetCellValue("Comments", "D3")
+	d4, _ := f.GetCellValue("Comments", "D4")
+	d5, _ := f.GetCellValue("Comments", "D5")
+	assert.Equal(t, "a1", d2)
+	assert.Equal(t, "a10", d3)
+	assert.Equal(t, "b5", d4)
+	assert.Equal(t, "b20", d5)
+}
+
+func TestExcelFilename_ContainsTodaysDate(t *testing.T) {
+	filename := ExcelFilename()
+	today := time.Now().Format("20060102")
+
+	assert.Equal(t, "review_"+today+".xlsx", filename)
+}
+
+func TestExportExcel_SpecialCharactersPreserved(t *testing.T) {
+	comments := []*Comment{
+		{ID: "c1", FilePath: "日本語.go", Line: 1, Body: "Unicode: 🎉 \"quoted\" コメント"},
+	}
+
+	data, err := ExportExcel(comments)
+	require.NoError(t, err)
+
+	f := openExcel(t, data)
+
+	a2, _ := f.GetCellValue("Comments", "A2")
+	d2, _ := f.GetCellValue("Comments", "D2")
+	assert.Equal(t, "日本語.go", a2)
+	assert.Equal(t, "Unicode: 🎉 \"quoted\" コメント", d2)
 }

@@ -8,7 +8,7 @@ A platform-independent, local code review tool that visualizes Git diffs in a Gi
 
 - **GitHub-style Diff Viewer** — Split / Unified view with syntax highlighting
 - **Comments** — File-level and line-level comments with review category (MUST/IMO/Q/FYI) and severity (Critical/High/Middle/Low)
-- **Export** — Markdown / JSON / CSV export with category and severity metadata
+- **Export** — Markdown / JSON / CSV / Excel (.xlsx) export with category and severity metadata
 - **Claude Code Integration** — Real-time WebSocket chat and automated code review
 - **File Browser** — Browse all tracked files with syntax highlighting
 - **Single Binary** — Frontend embedded via Go embed, no separate install required

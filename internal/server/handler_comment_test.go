@@ -503,4 +503,37 @@ func TestExportComments_IncludesContentDisposition(t *testing.T) {
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
 	assert.Equal(t, `attachment; filename="comments.json"`, w.Header().Get("Content-Disposition"))
+
+	// Excel export
+	req = httptest.NewRequest(http.MethodGet, "/api/comments/export?format=xlsx", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	assert.Equal(t, `attachment; filename="`+comment.ExcelFilename()+`"`, w.Header().Get("Content-Disposition"))
+}
+
+func TestExportComments_ReturnsXlsx(t *testing.T) {
+	s := setupCommentServer(t)
+
+	// Create a comment
+	payload := `{"filePath":"main.go","line":10,"body":"fix this","reviewCategory":"MUST","severity":"Critical"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	// Export as xlsx
+	req = httptest.NewRequest(http.MethodGet, "/api/comments/export?format=xlsx", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", w.Header().Get("Content-Type"))
+	assert.Equal(t, `attachment; filename="`+comment.ExcelFilename()+`"`, w.Header().Get("Content-Disposition"))
+
+	// Verify xlsx content is valid and contains data
+	assert.True(t, len(w.Body.Bytes()) > 0)
+	// xlsx files start with PK (zip signature)
+	assert.Equal(t, byte('P'), w.Body.Bytes()[0])
+	assert.Equal(t, byte('K'), w.Body.Bytes()[1])
 }

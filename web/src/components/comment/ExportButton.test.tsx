@@ -19,6 +19,7 @@ describe('ExportButton', () => {
     expect(screen.getByRole('link', { name: /markdown/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /json/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /csv/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /excel/i })).toBeInTheDocument()
   })
 
   it('has correct download links for each format', async () => {
@@ -30,10 +31,12 @@ describe('ExportButton', () => {
     const markdownLink = screen.getByRole('link', { name: /markdown/i })
     const jsonLink = screen.getByRole('link', { name: /json/i })
     const csvLink = screen.getByRole('link', { name: /csv/i })
+    const excelLink = screen.getByRole('link', { name: /excel/i })
 
     expect(markdownLink).toHaveAttribute('href', '/api/comments/export?format=markdown')
     expect(jsonLink).toHaveAttribute('href', '/api/comments/export?format=json')
     expect(csvLink).toHaveAttribute('href', '/api/comments/export?format=csv')
+    expect(excelLink).toHaveAttribute('href', '/api/comments/export?format=xlsx')
   })
 
   it('hides dropdown when clicking Export again', async () => {
