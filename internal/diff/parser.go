@@ -46,7 +46,7 @@ var langMap = map[string]string{
 // Parse parses a raw unified diff string into a DiffResult.
 func Parse(raw string) (*DiffResult, error) {
 	if strings.TrimSpace(raw) == "" {
-		return &DiffResult{}, nil
+		return &DiffResult{Files: []DiffFile{}}, nil
 	}
 
 	files, _, err := gitdiff.Parse(strings.NewReader(raw))
@@ -54,7 +54,7 @@ func Parse(raw string) (*DiffResult, error) {
 		return nil, err
 	}
 
-	result := &DiffResult{}
+	result := &DiffResult{Files: []DiffFile{}}
 	for _, f := range files {
 		df := convertFile(f)
 		result.Files = append(result.Files, df)
@@ -71,6 +71,7 @@ func convertFile(f *gitdiff.File) DiffFile {
 		NewPath:  f.NewName,
 		Status:   detectFileStatus(f),
 		IsBinary: f.IsBinary,
+		Hunks:    []Hunk{},
 	}
 
 	// Determine display path for language detection
@@ -104,6 +105,7 @@ func convertHunk(frag *gitdiff.TextFragment) Hunk {
 		NewStart: int(frag.NewPosition),
 		NewLines: int(frag.NewLines),
 		Header:   strings.TrimSpace(frag.Comment),
+		Lines:    []Line{},
 	}
 
 	oldNum := int(frag.OldPosition)

@@ -272,7 +272,7 @@ function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment,
 
   const commentsByLine = useMemo(() => {
     const map = new Map<number, Comment[]>()
-    for (const c of comments) {
+    for (const c of comments ?? []) {
       const arr = map.get(c.line)
       if (arr) {
         arr.push(c)
@@ -285,7 +285,7 @@ function UnifiedView({ hunks, language, comments, onAddComment, onDeleteComment,
 
   return (
     <div className="text-sm font-mono">
-      {hunks.map((hunk) => (
+      {(hunks ?? []).map((hunk) => (
         <div key={`${hunk.oldStart}-${hunk.newStart}`}>
           {hunk.header && (
             <div className="px-4 py-1 bg-[#1c2128] text-gray-500 text-xs">
@@ -382,7 +382,7 @@ function SplitView({ hunks, language, comments, onAddComment, onDeleteComment, o
 
   const commentsByLine = useMemo(() => {
     const map = new Map<number, Comment[]>()
-    for (const c of comments) {
+    for (const c of comments ?? []) {
       const arr = map.get(c.line)
       if (arr) {
         arr.push(c)
@@ -469,7 +469,7 @@ interface PairedLine {
 function pairLines(hunks: Hunk[]): PairedLine[] {
   const result: PairedLine[] = []
 
-  for (const hunk of hunks) {
+  for (const hunk of hunks ?? []) {
     if (hunk.header) {
       result.push({ type: 'header', header: hunk.header })
     }
