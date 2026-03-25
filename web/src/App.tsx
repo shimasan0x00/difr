@@ -14,6 +14,8 @@ import { ReviewButton } from './components/claude/ReviewButton'
 import { useResizable } from './hooks/useResizable'
 import { buildReviewContent } from './utils/buildReviewContent'
 
+const LARGE_DIFF_THRESHOLD = 10
+
 function App() {
   const files = useDiffStore((s) => s.files)
   const stats = useDiffStore((s) => s.stats)
@@ -127,6 +129,11 @@ function App() {
   // Claude panel should stay visible once initialized (connection attempted)
   // so users can see errors and chat history even when disconnected
   const claudeInitialized = claudeConnected || claudeMessages.length > 0 || !!claudeError
+
+  const isLargeDiff = files.length > LARGE_DIFF_THRESHOLD
+
+  const [expandAllKey, setExpandAllKey] = useState(0)
+  const [collapseAllKey, setCollapseAllKey] = useState(0)
 
   const [fileListExpanded, setFileListExpanded] = useState(true)
   const [chatExpanded, setChatExpanded] = useState(true)
@@ -242,6 +249,24 @@ function App() {
             <span>{files.length} file{files.length !== 1 ? 's' : ''} changed</span>
             {stats.additions > 0 && <span className="text-green-400 ml-2">+{stats.additions}</span>}
             {stats.deletions > 0 && <span className="text-red-400 ml-2">-{stats.deletions}</span>}
+            {isLargeDiff && (
+              <span className="flex items-center gap-1 ml-2">
+                <button
+                  type="button"
+                  onClick={() => setExpandAllKey((k) => k + 1)}
+                  className="px-2 py-0.5 text-xs text-gray-400 hover:text-gray-200 border border-gray-700 rounded hover:border-gray-500"
+                >
+                  Expand all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCollapseAllKey((k) => k + 1)}
+                  className="px-2 py-0.5 text-xs text-gray-400 hover:text-gray-200 border border-gray-700 rounded hover:border-gray-500"
+                >
+                  Collapse all
+                </button>
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -281,10 +306,10 @@ function App() {
             <p className="text-gray-400">No changes found.</p>
           ) : (
             <>
-              {files.map((file) => {
+              {files.map((file, index) => {
                 const filePath = file.newPath || file.oldPath
                 return (
-                  <div key={filePath} id={`diff-file-${filePath}`}>
+                  <div key={filePath} id={`diff-file-${filePath}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '0 200px' }}>
                     <DiffViewer
                       file={file}
                       viewMode={viewMode}
@@ -295,6 +320,9 @@ function App() {
                       isReviewed={reviewedFiles.has(filePath)}
                       onToggleReviewed={() => toggleReviewed(filePath)}
                       saving={commentSaving}
+                      defaultExpanded={!isLargeDiff || index === 0}
+                      expandAllKey={expandAllKey}
+                      collapseAllKey={collapseAllKey}
                     />
                   </div>
                 )

@@ -15,12 +15,31 @@ interface DiffViewerProps {
   isReviewed?: boolean
   onToggleReviewed?: () => void
   saving?: boolean
+  defaultExpanded?: boolean
+  expandAllKey?: number
+  collapseAllKey?: number
 }
 
-export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment, onUpdateComment, isReviewed, onToggleReviewed, saving }: DiffViewerProps) {
-  const [expanded, setExpanded] = useState(true)
+export function DiffViewer({ file, viewMode, comments = [], onAddComment, onDeleteComment, onUpdateComment, isReviewed, onToggleReviewed, saving, defaultExpanded, expandAllKey, collapseAllKey }: DiffViewerProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded ?? true)
   const [commentingFile, setCommentingFile] = useState(false)
   const displayPath = file.newPath && file.newPath !== '/dev/null' ? file.newPath : file.oldPath
+
+  const prevExpandAllKey = useRef(expandAllKey)
+  useEffect(() => {
+    if (expandAllKey !== undefined && expandAllKey !== prevExpandAllKey.current) {
+      setExpanded(true) // eslint-disable-line react-hooks/set-state-in-effect
+    }
+    prevExpandAllKey.current = expandAllKey
+  }, [expandAllKey])
+
+  const prevCollapseAllKey = useRef(collapseAllKey)
+  useEffect(() => {
+    if (collapseAllKey !== undefined && collapseAllKey !== prevCollapseAllKey.current) {
+      setExpanded(false) // eslint-disable-line react-hooks/set-state-in-effect
+    }
+    prevCollapseAllKey.current = collapseAllKey
+  }, [collapseAllKey])
 
   const prevReviewed = useRef(isReviewed)
   useEffect(() => {
