@@ -323,6 +323,59 @@ describe('DiffViewer', () => {
     expect(lines.length).toBe(4)
   })
 
+  describe('defaultExpanded prop', () => {
+    it('starts collapsed when defaultExpanded is false', () => {
+      render(<DiffViewer file={mockFile} viewMode="unified" defaultExpanded={false} />)
+      expect(screen.getByText('main.go')).toBeInTheDocument()
+      expect(screen.queryByText('func new() {}')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /toggle/i })).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('starts expanded when defaultExpanded is true', () => {
+      render(<DiffViewer file={mockFile} viewMode="unified" defaultExpanded={true} />)
+      expect(screen.getByText('func new() {}')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /toggle/i })).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('starts expanded when defaultExpanded is undefined (backward compat)', () => {
+      render(<DiffViewer file={mockFile} viewMode="unified" />)
+      expect(screen.getByText('func new() {}')).toBeInTheDocument()
+    })
+  })
+
+  describe('expandAllKey / collapseAllKey', () => {
+    it('expands when expandAllKey changes', () => {
+      const { rerender } = render(
+        <DiffViewer file={mockFile} viewMode="unified" defaultExpanded={false} expandAllKey={0} collapseAllKey={0} />
+      )
+      expect(screen.queryByText('func new() {}')).not.toBeInTheDocument()
+
+      rerender(
+        <DiffViewer file={mockFile} viewMode="unified" defaultExpanded={false} expandAllKey={1} collapseAllKey={0} />
+      )
+      expect(screen.getByText('func new() {}')).toBeInTheDocument()
+    })
+
+    it('collapses when collapseAllKey changes', () => {
+      const { rerender } = render(
+        <DiffViewer file={mockFile} viewMode="unified" expandAllKey={0} collapseAllKey={0} />
+      )
+      expect(screen.getByText('func new() {}')).toBeInTheDocument()
+
+      rerender(
+        <DiffViewer file={mockFile} viewMode="unified" expandAllKey={0} collapseAllKey={1} />
+      )
+      expect(screen.queryByText('func new() {}')).not.toBeInTheDocument()
+    })
+
+    it('does not trigger on initial render with key=0', () => {
+      render(
+        <DiffViewer file={mockFile} viewMode="unified" defaultExpanded={false} expandAllKey={0} collapseAllKey={0} />
+      )
+      expect(screen.queryByText('func new() {}')).not.toBeInTheDocument()
+    })
+  })
+
   describe('file-level comments', () => {
     it('shows add file comment button when onAddComment is provided', () => {
       render(<DiffViewer file={mockFile} viewMode="unified" onAddComment={vi.fn()} />)
